@@ -15,35 +15,57 @@ deepstate provides some simple hooks-based state management primitives which
 maybe aren't very efficient in a large app, but are simple, flexible and
 straightforward in an async world.
 
-## actions
+## Usage 
+
+``` clojure
+(require '[deepstate.action :as a]')
+```
+
+## The model and state
+
+There is a single state value (per `action-context`). The state
+should be pure data.
+
+Actions get 
+dispatched in response to events in the app and are then handled, 
+and the result of handling an 
+action is some effects, which are functions which are used to update
+the state. 
+
+## Actions
 
 Actions are maps which describe an operation to mutate state. They have
-an `::action/action` key which selects a handler, and any other keys 
+an `::a/action` key which selects a handler, and whatever other keys 
 the handler requires.
 
 ## dispatch 
 
 An action is `dispatch`ed causing a handler to be invoked according 
-to the `::action/action` key in the action. The handler
+to the `::a/action` key in the action. The handler
 returns some `Effects` which can be:
 
-* `(fn [state] ...)` - an `::action/update-now` function to update state
-* `Promise<Effects>` - an `::action/update-later` promise of `Effects`
+* `(fn [state] ...)` - an `::a/update-now` function to update state
+* `Promise<Effects>` - an `::a/update-later` promise of `Effects`
 * a map: 
 ``` clojure
-    {::action/update-now (fn [state] ...)
-     ::action/navigate (fn [state] ...)
-     ::action/update-later Promise<Effects>}
+    {::a/update-now (fn [state] ...)
+     ::a/navigate (fn [state] ...)
+     ::a/update-later Promise<Effects>}
 ```
 
-any `::action/update-now` fn will be immediately used to update state,
-and any `::action/navigate` fn will be used to navigate. 
-`::action/update-later` will be recursively waited on and processed
+any `::a/update-now` fn will be immediately used to update state,
+and any `::a/navigate` fn will be used to navigate. 
+`::a/update-later` will be recursively waited on and processed
 until all effects have been completed.
 
 ## def-action
 
-Defines an action handler
+Defines an action handler. It takes
+
+* the `::a/action` key used in an action map
+* a parameter destructuring vector for the single action map parameter 
+* the body defining the effects the handler returns - which may use
+  the bindings destructured from the action map
 
 ``` clojure
 (a/def-action ::change-query
@@ -57,7 +79,7 @@ Defines an action handler
 
 Defines a promise-based async action handler. The action is specified as 
 a form returning a promise of the result. The state of the action 
-will be managed and reported on in a standard data-structure, with 
+will be managed and reported on with a standard data schema, with 
 the result (or error) being added to the structure when the action completes. 
 
 
