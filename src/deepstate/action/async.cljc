@@ -107,7 +107,7 @@
      (let [{action-promise ::action/async
             :as action-map} (if (map? action-promise-or-action-map)
                               action-promise-or-action-map
-                              {::action action-promise-or-action-map})
+                              {::action/async action-promise-or-action-map})
 
            action-path (or action-path
                            (cond
