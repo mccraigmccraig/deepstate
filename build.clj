@@ -5,6 +5,7 @@
             [clojure.string :as str]))
 
 (def lib 'com.github.mccraigmccraig/deepstate)
+(def web-url "https://github.com/mccraigmccraig/deepstate")
 (def scm-url "git@github.com/mccraigmccraig/deepstate.git")
 (def version (format "0.0.%s-SNAPSHOT" (b/git-count-revs nil)))
 
@@ -29,7 +30,7 @@
              :scm {:tag (sha nil)
                    :connection (str "scm:git:" scm-url)
                    :developerConnection (str "scm:git:" scm-url)
-                   :url scm-url})
+                   :url web-url})
       (bb/run-tests)
       (bb/clean)
       (bb/jar)))
