@@ -2,21 +2,22 @@
   #?(:clj
      (:require
       [deepstate.action :as-alias action]
-      [deepstate.action.api :as-alias action.api]
-      [deepstate.action.async :as action.async]
-      [deepstate.action.api.error :as-alias api.err]))
+      [deepstate.action.async :as action.async]))
 
   #?(:cljs
      (:require
       [promesa.core :as p]
-      [deepstate.action :as-alias action]
-      [deepstate.action.api :as-alias action.api]
-      [deepstate.action.async]
-      [deepstate.action.api.error :as-alias api.err]))
+      [deepstate.action :as action]
+      [deepstate.action.async]))
 
   #?(:cljs
      (:require-macros
       [deepstate.action.axios])))
+
+;; you might think that :deepstate.action.api could be required with
+;; an :as-alias to shorten the keywords below, but that would require
+;; both :clj and :cljs :as-alias statements which compiles just fine,
+;; but chokes cljdoc
 
 #?(:cljs
    (defn parse-axios-success-response
@@ -25,9 +26,9 @@
        content-type :content-type
        :as _r}]
      {::action/schema :api
-      ::action.api/data data
-      ::action.api/status status
-      ::action.api/content-type content-type}))
+      :deepstate.action.api/data data
+      :deepstate.action.api/status status
+      :deepstate.action.api/content-type content-type}))
 
 #?(:cljs
    (defn parse-axios-error-response
@@ -38,10 +39,10 @@
             :as err-data} (-> r (.toJSON) (js->clj :keywordize-keys true))]
        (p/rejected
         {::action/schema :api
-         ::action.api/err-message err-message
-         ::action.api/err-stack err-stack
-         ::action.api/err-code err-code
-         ::action.api/org-err err-data}))))
+         :deepstate.action.api/err-message err-message
+         :deepstate.action.api/err-stack err-stack
+         :deepstate.action.api/err-code err-code
+         :deepstate.action.api/org-err err-data}))))
 
 #?(:cljs
    (defn handle-axios-response
