@@ -15,7 +15,7 @@
       [deepstate.action])))
 
 #?(:cljs
-   (defmulti handle
+   (defmulti ^:nodoc handle
      "handle a possibly asynchronous action
 
       - `action` : the action. must have key `::action`
@@ -82,7 +82,7 @@
          new-state))))
 
 #?(:cljs
-   (defn apply-effects-loop
+   (defn ^:no-doc apply-effects-loop
      "given an update-spec from a (handle action),
       apply ActionEffects, looping until all
       promises are resolved
@@ -251,7 +251,7 @@
           ~@body))))
 
 #?(:cljs
-   (hx/defnc ActionContextProvider
+   (hx/defnc ^:no-doc ActionContextProvider
      [{context :context
        initial-arg :initial-arg
        [child] :children}]

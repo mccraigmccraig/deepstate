@@ -1,7 +1,9 @@
 (ns deepstate.navigate)
 
-;; there can be only one default implementation,
-;; and it's not defined here ... require a
-;; suitable namespace with an impl
 (defmulti navigator
+  "return a (fn <url>) to navigate to a url
+
+   since it is a 0-args multimethod, only the :default
+   implementation can be used. require a namespace with
+   the implementation you want"
   (fn []))
