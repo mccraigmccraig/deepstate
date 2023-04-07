@@ -122,5 +122,9 @@ it returns the entire state
 ```
 
 
+# license
 
+Copyright © 2023 mccraigmccraig of the clan mccraig
+
+Distributed under the [MIT License](https://github.com/mccraigmccraig/deepstate/blob/trunk/LICENSE).
 
