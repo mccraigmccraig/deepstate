@@ -7,7 +7,7 @@
 (def lib 'com.github.mccraigmccraig/deepstate)
 (def web-url "https://github.com/mccraigmccraig/deepstate")
 (def scm-url "git@github.com/mccraigmccraig/deepstate.git")
-(def version (format "0.0.%s-SNAPSHOT" (b/git-count-revs nil)))
+(def version (format "0.0.%s" (b/git-count-revs nil)))
 
 (defn sha
   "the git sha is needed to tag a release in the pom.xml for cljdocs"
