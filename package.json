@@ -1,0 +1,13 @@
+{
+    "name": "deepstate",
+    "description": "A ClojureScript micro-library for managing state in a Helix / React app",
+    "version": "1.0.0",
+    "author": "mccraigmccraig of the clan mccraig <mccraigmccraig@gmail.com>",
+    "license": "MIT",
+    "main": "app/main.js",
+    "scripts": {
+    },
+    "dependencies": {"node-repl": "^2.0.2",
+                     "shadow-cljs": "^2.22.9"},
+    "devDependencies": {}
+}

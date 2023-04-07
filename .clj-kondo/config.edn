@@ -1,0 +1,12 @@
+{:lint-as
+ {
+  helix.core/defnc clojure.core/defn
+
+  deepstate.action/def-action clojure.core/defn
+  deepstate.action.async/def-async-action clojure.core/defn
+  deepstate.action.axios/def-axios-action clojure.core/defn
+
+  malli.experimental/defn schema.core/defn
+  promesa.core/let clojure.core/let
+  promesa.core/loop clojure.core/loop
+  promesa.core/recur clojure.core/recur}}
