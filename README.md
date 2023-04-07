@@ -15,10 +15,11 @@ deepstate provides some simple hooks-based state management primitives which
 maybe aren't very efficient in a large app, but are simple, flexible and
 straightforward in an async world.
 
-## Usage 
+## require
 
 ``` clojure
-(require '[deepstate.action :as a]')
+(require '[deepstate.action :as a])
+(require '[deepstate.action.async :as a.async])
 ```
 
 ## The model and state
