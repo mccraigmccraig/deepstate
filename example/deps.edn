@@ -1,0 +1,20 @@
+{:paths ["src" "../src"]
+ :deps {binaryage/devtools {:mvn/version "1.0.6"}
+        thheller/shadow-cljs {:mvn/version "2.22.9"}
+        org.clojure/clojure {:mvn/version "1.11.1"}
+        org.clojure/clojurescript {:mvn/version "1.11.60"}
+        applied-science/js-interop {:mvn/version "0.4.1"}
+        lilactown/helix {:mvn/version "0.1.9"}
+        lambdaisland/uri {:mvn/version "1.13.95"}
+        com.github.mccraigmccraig/deepstate {:local/root ".."}}
+
+ :aliases
+ {:shadow-cljs
+  {:extra-deps {thheller/shadow-cljs {:mvn/version "2.20.20"}}
+   :main-opts ["-m" "shadow.cljs.devtools.cli"]}
+
+  :shadow-node-repl
+  {:extra-deps {nrepl/nrepl {:mvn/version "1.1.0-alpha1"}
+                cider/piggieback {:mvn/version "0.5.3"}
+                refactor-nrepl/refactor-nrepl {:mvn/version "3.6.0"}
+                cider/cider-nrepl {:mvn/version "0.29.0"}}}}}

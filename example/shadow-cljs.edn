@@ -1,0 +1,15 @@
+;; shadow-cljs configuration
+{:deps true
+
+ :builds
+ {:app {:target :browser
+        :output-dir "js"
+        :asset-path "/js"
+        :modules {:app {:entries [example.core]}}
+        :devtools {:http-root    "."
+                   :http-port    8888
+                   :reload-strategy :full
+                   :preloads     [devtools.preload
+                                  example.dev]}
+
+        :closure-defines {}}}}
