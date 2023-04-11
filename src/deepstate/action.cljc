@@ -250,6 +250,13 @@
      (react/useContext ctx)))
 
 #?(:cljs
+   (defn use-action-dispatch
+     "get a dispatch fn for an `action-context`"
+     [ctx]
+     (let [ctx-val (react/useContext ctx)]
+       (partial dispatch ctx-val))))
+
+#?(:cljs
    (defn use-action-state
      "extract the value at `path` (default `nil`) in the current `state`
       from an `action-context`"
