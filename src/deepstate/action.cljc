@@ -15,18 +15,19 @@
       [deepstate.action])))
 
 #?(:cljs
-   (defmulti ^:nodoc handle
+   (defmulti ^:no-doc handle
      "handle a possibly asynchronous action
 
-      - `action` : the action. must have key `::action`
+      - `action` : the `ActionMap.` must have key `::action`
                  which identifies the handler multimethod
 
       returns:
-        ActionEffects = (f state) |
-                        Promise<(f <state>)> |
-                        {::update-now (f state)
-                         ::navigate (f state)
-                         ::update-later Promise<ActionEffects>}
+        `ActionEffects` = (f state)
+                          | {::update-now (f state)
+                             ::navigate (f state)
+                             ::dispatch <`ActionMap>`|[<`ActionMap`>]
+                             ::update-later Promise<`ActionEffects`>}
+                          | Promise<`ActionEffects`>
 
       i.e. handle returns fns of state which will be used
       to update the state. If the action is asynchronous it
@@ -44,23 +45,23 @@
      (js/console.warn "no handler matching action key: " (pr-str action))))
 
 #?(:cljs
-   (defn ^:private update-state-and-navigate-fn
+   (defn ^:private apply-update-state-and-navigate-effects
      "returns a fn which safely applies fn `f` to `state`,
       storing any errors at key `::error`.
 
       if `navigate-fn` is non-nil then it will be passed
       the updated `state` and is expected to return a url
-      which will be stored in the `::navstate` atom in
-      the `action-context-val` for later navigation"
+      which will be recorded in the navurl state for later
+      navigation"
      [{set-navurl ::set-navurl
        :as _action-context-val}
-      navigate-fn
-      f]
+      navigate-effect-fn
+      update-state-effect-fn]
 
      (fn [state]
        (let [navigate (fn [state]
                         (try
-                          (let [url (navigate-fn state)]
+                          (let [url (navigate-effect-fn state)]
                             (when (some? url)
                               ;; (js/console.info "navigating: " url)
                               (set-navurl url))
@@ -69,8 +70,8 @@
                             (assoc state ::error e))))
 
              new-state (try
-                         (cond-> (f state)
-                           (some? navigate-fn) (navigate))
+                         (cond-> (update-state-effect-fn state)
+                           (some? navigate-effect-fn) (navigate))
                          (catch :default e
                            (assoc state ::error e)))]
 
@@ -82,15 +83,37 @@
          new-state))))
 
 #?(:cljs
+   (declare dispatch))
+
+#?(:cljs
+   (defn ^:no-doc apply-dispatch-effect
+     [action-context-val
+      dispatch-effect]
+     (cond
+       (map? dispatch-effect)
+       (dispatch action-context-val dispatch-effect)
+
+       (sequential? dispatch-effect)
+       (doseq [deff dispatch-effect]
+         (dispatch action-context-val deff))
+
+       :else
+       (throw
+        (ex-info
+         "unrecognised dispatch effect"
+         {:dispatch-effect dispatch-effect})))))
+
+#?(:cljs
    (defn ^:no-doc apply-effects-loop
-     "given an update-spec from a (handle action),
-      apply ActionEffects, looping until all
+     "given ActionEffects from a `(handle action)`,
+      apply the effects, looping until all
       promises are resolved
 
-      3 effects are currently supported ...
+      4 effects are currently supported ...
       `::update-now` - a fn to apply to `state` to update it
       `::navigate` - a fn to apply to `state` to get a url to navigate to
-      `::update-later` - a promise of further effects, possibly recursive"
+      `::dispatch` - an action-map or list of action-maps to dispatch
+      `::update-later` - a promise of further ActionEffects"
      [{react-dispatch ::dispatch
        :as action-context-val}
       update-spec]
@@ -98,31 +121,46 @@
 
        (cond
          (fn? update-spec)
-         (react-dispatch (update-state-and-navigate-fn
+         (react-dispatch (apply-update-state-and-navigate-effects
                           action-context-val
                           nil
                           update-spec))
 
          (map? update-spec)
-         (let [{update-now ::update-now
-                navigate-fn ::navigate
-                update-later ::update-later} update-spec]
-           (when (fn? update-now)
-             (react-dispatch (update-state-and-navigate-fn
+         (let [{update-now-eff ::update-now
+                navigate-fn-eff ::navigate
+                dispatch-eff ::dispatch
+                update-later-eff ::update-later} update-spec]
+           (when (fn? update-now-eff)
+             (react-dispatch (apply-update-state-and-navigate-effects
                               action-context-val
-                              navigate-fn
-                              update-now)))
+                              navigate-fn-eff
+                              update-now-eff)))
 
-           (when (p/promise? update-later)
-             (p/handle
-              update-later
-              (fn [update-spec e]
-                (if (some? e)
-                  #_{:clj-kondo/ignore [:invalid-arity]}
-                  (p/recur (fn [state] (assoc state ::error e)))
+           ;; fully handle any dispatch effects before any update-later
+           ;; effects
+           (let [update-later-eff
+                 (if (some? dispatch-eff)
+                   (p/handle
+                    (apply-dispatch-effect action-context-val dispatch-eff)
+                    (fn [_ e]
+                      (if (some? e)
+                        #_{:clj-kondo/ignore [:invalid-arity]}
+                        (p/recur (fn [state] (assoc state ::error e)))
+                        (when (p/promise? update-later-eff)
+                          #_{:clj-kondo/ignore [:invalid-arity]}
+                          (p/recur update-later-eff)))))
+                   update-later-eff)]
+             (when (p/promise? update-later-eff)
+               (p/handle
+                update-later-eff
+                (fn [update-spec e]
+                  (if (some? e)
+                    #_{:clj-kondo/ignore [:invalid-arity]}
+                    (p/recur (fn [state] (assoc state ::error e)))
 
-                  #_{:clj-kondo/ignore [:invalid-arity]}
-                  (p/recur update-spec))))))
+                    #_{:clj-kondo/ignore [:invalid-arity]}
+                    (p/recur update-spec)))))))
 
          (p/promise? update-spec)
          (p/handle
@@ -251,7 +289,7 @@
           ~@body))))
 
 #?(:cljs
-   (hx/defnc ^:no-doc ActionContextProvider
+   (hx/defnc ActionContextProvider
      [{context :context
        initial-arg :initial-arg
        [child] :children}]
