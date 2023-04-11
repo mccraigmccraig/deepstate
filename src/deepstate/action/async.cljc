@@ -121,7 +121,7 @@
 
            navigate-fn (async-navigate-fn action-path action-map)]
 
-       ;; (js/console.info "async-action" (pr-str _action-map))
+       ;; (js/console.info "async-action" (pr-str action-map))
 
        (cond->
 
@@ -159,7 +159,7 @@
 
        - `key` : the action key and the path in the `state` for
                the request status and response value data
-       - `action-bindings` : fn bindings to destructure the action
+       - `action-bindings` : fn bindings to destructure the action map
        - `action-or-action-map` : form returning a promise of the
           result or a map as described in `async-action` - may
           refer to `action-bindings`"

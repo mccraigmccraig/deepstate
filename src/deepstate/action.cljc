@@ -77,8 +77,7 @@
 
          ;; (js/console.debug
          ;;  "update-and-navigate"
-         ;;  (pr-str new-state)
-         ;;  (some-> navstate deref pr-str))
+         ;;  (pr-str new-state))
 
          new-state))))
 
@@ -116,21 +115,25 @@
       `::update-later` - a promise of further ActionEffects"
      [{react-dispatch ::dispatch
        :as action-context-val}
-      update-spec]
-     (p/loop [update-spec update-spec]
+      action-effects]
+     (p/loop [action-effects action-effects]
+
+       ;; (js/console.debug
+       ;;  "deepstate.action/apply-effects-loop"
+       ;;  (pr-str action-effects))
 
        (cond
-         (fn? update-spec)
+         (fn? action-effects)
          (react-dispatch (apply-update-state-and-navigate-effects
                           action-context-val
                           nil
-                          update-spec))
+                          action-effects))
 
-         (map? update-spec)
+         (map? action-effects)
          (let [{update-now-eff ::update-now
                 navigate-fn-eff ::navigate
                 dispatch-eff ::dispatch
-                update-later-eff ::update-later} update-spec]
+                update-later-eff ::update-later} action-effects]
            (when (fn? update-now-eff)
              (react-dispatch (apply-update-state-and-navigate-effects
                               action-context-val
@@ -154,31 +157,31 @@
              (when (p/promise? update-later-eff)
                (p/handle
                 update-later-eff
-                (fn [update-spec e]
+                (fn [action-effects e]
                   (if (some? e)
                     #_{:clj-kondo/ignore [:invalid-arity]}
                     (p/recur (fn [state] (assoc state ::error e)))
 
                     #_{:clj-kondo/ignore [:invalid-arity]}
-                    (p/recur update-spec)))))))
+                    (p/recur action-effects)))))))
 
-         (p/promise? update-spec)
+         (p/promise? action-effects)
          (p/handle
-          update-spec
-          (fn [update-spec e]
+          action-effects
+          (fn [action-effects e]
             (if (some? e)
               #_{:clj-kondo/ignore [:invalid-arity]}
               (p/recur (fn [state] (assoc state ::error e)))
 
               #_{:clj-kondo/ignore [:invalid-arity]}
-              (p/recur update-spec))))
+              (p/recur action-effects))))
 
          :else
          (p/recur
           (fn [state]
             (assoc state ::error
-                   (ex-info "unrecognised update-spec"
-                            {:update-spec update-spec}))))))))
+                   (ex-info "unrecognised action-effects"
+                            {:action-effects action-effects}))))))))
 
 #?(:cljs
    (defn dispatch
@@ -204,11 +207,12 @@
                     {::action action}
                     action)
 
-           update-spec (handle action)]
+           action-effects (handle action)]
 
-       ;; (js/console.log "deepstate.action/dispatch update-spec" update-spec)
+       ;; (js/console.log "deepstate.action/dispatch action-effects"
+       ;;                 (pr-str action-effects))
 
-       (apply-effects-loop action-context-val update-spec)
+       (apply-effects-loop action-context-val action-effects)
 
        true)))
 

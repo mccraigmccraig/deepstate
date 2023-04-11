@@ -1,14 +1,13 @@
 (ns deepstate.action.axios
   #?(:clj
      (:require
-      [deepstate.action :as-alias action]
-      [deepstate.action.async :as action.async]))
+      [deepstate.action :as-alias action]))
 
   #?(:cljs
      (:require
       [promesa.core :as p]
       [deepstate.action :as action]
-      [deepstate.action.async]))
+      [deepstate.action.async :as action.async]))
 
   #?(:cljs
      (:require-macros
@@ -55,6 +54,29 @@
           (parse-axios-error-response err)
           (parse-axios-success-response succ))))))
 
+#?(:cljs
+   (defn axios-action
+     "perform an axios-action - an async-action with
+      response parsing"
+     [key
+      action
+      axios-action-map-or-axios-action]
+
+     (let [{axios-action ::action/axios
+            :as axios-action-map} (if (map? axios-action-map-or-axios-action)
+                                    axios-action-map-or-axios-action
+                                    {::action/axios axios-action-map-or-axios-action})
+
+           axios-action-map (-> axios-action-map
+                                (dissoc ::action/axios)
+                                (assoc ::action/async
+                                       (handle-axios-response axios-action)))]
+
+       (action.async/async-action
+        key
+        action
+        axios-action-map))))
+
 #?(:clj
    (defmacro def-axios-action
      "define an axios based async action - it's just an
@@ -66,19 +88,11 @@
       use the `::action/axios` key of the `action-map` to
       provide the form returning the axios promise"
      [key
-      action-bindings-vec
+      [action-bindings]
       axios-action-map-or-axios-action]
 
-     (let [{axios-action ::action/axios
-            :as axios-action-map} (if (map? axios-action-map-or-axios-action)
-                                    axios-action-map-or-axios-action
-                                    {::action/axios axios-action-map-or-axios-action})
+     `(defmethod action/handle ~key
+        [action#]
 
-           axios-action-map (dissoc axios-action-map ::action/axios)]
-
-       `(action.async/def-async-action
-          ~key
-          ~action-bindings-vec
-          (-> ~axios-action-map
-              (dissoc ::action/axios)
-              (assoc ::action/async (handle-axios-response ~axios-action)))))))
+        (let [~action-bindings (action/remove-action-keys action#)]
+          (axios-action ~key action# ~axios-action-map-or-axios-action)))))
