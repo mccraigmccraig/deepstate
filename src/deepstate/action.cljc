@@ -48,7 +48,7 @@
    (declare dispatch))
 
 #?(:cljs
-   (defn ^:no-doc apply-dispatch-effect
+   (defn ^:private apply-dispatch-effect
      [action-context-val
       dispatch-effect]
      (cond
@@ -66,7 +66,7 @@
          {:dispatch-effect dispatch-effect})))))
 
 #?(:cljs
-   (defn ^:no-doc action-effects-reducer-action
+   (defn ^:private action-effects-reducer-action
      "return a reducer action which can be dispatched
       to the underlying react reducer
       `action-context-val` - action context value
@@ -108,7 +108,7 @@
          (or new-state-eff state)))))
 
 #?(:cljs
-   (defn dispatch
+   (defn ^:no-doc dispatch
      "dispatch an action to update the state
 
        - `action-context-val` : the value from an action-context
@@ -303,12 +303,13 @@
 
 #?(:clj
    (defmacro action-context-provider
-     "uses a `use-reducer` hook to encapsulate state and propagates
-      it with a `ContextProvider`
+     "a ContextProvider element to provide an action-context
 
+       props:
        - `context` - the `action-context` React context
        - `initial-arg` - the initial `state` value
-       - `child` - content to include inside the `ContextProvider` element"
+       - `children` - only the first child will be included
+                      as a child of the `ContextProvider` element"
      [& args]
 
      `(hx/$ ActionContextProvider ~@args)))
