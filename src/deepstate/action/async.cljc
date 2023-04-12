@@ -76,7 +76,7 @@
       - `action` : the action value being handled
         - `::action/path` - instead of updating the `state` at `key`,
                             update the `state` at `path`
-      - `action-promise-or-action-map` : a promise of a result,
+      - `action-promise-or-async-action-map` : a promise of a result,
            or a map `{::action/async <action-promise>
                       ::action/navigate <navigate-fn>}`
 
@@ -102,13 +102,13 @@
      [key
       {action-path ::action/path
        :as action}
-      action-promise-or-action-map
+      action-promise-or-async-action-map
       state]
 
      (let [{action-promise ::action/async
-            :as action-map} (if (map? action-promise-or-action-map)
-                              action-promise-or-action-map
-                              {::action/async action-promise-or-action-map})
+            :as action-map} (if (map? action-promise-or-async-action-map)
+                              action-promise-or-async-action-map
+                              {::action/async action-promise-or-async-action-map})
 
            action-path (or action-path
                            (cond
@@ -164,12 +164,12 @@
        - `key` : the action key and the path in the `state` for
                the request status and response value data
        - `action-bindings` : fn bindings to destructure the action map
-       - `action-or-action-map` : form returning a promise of the
+       - `action-promise-or-async-action-map` : form returning a promise of the
           result or a map as described in `async-action` - may
           refer to `action-bindings`"
      [key
       [state-bindings action-bindings]
-      action-or-action-map]
+      action-promise-or-async-action-map]
 
      `(defmethod action/handle ~key
         [action#]
@@ -179,4 +179,8 @@
           (fn [state#]
             (let [~state-bindings state#]
 
-              (async-action ~key action# ~action-or-action-map state#)))))))
+              (async-action
+               ~key
+               action#
+               ~action-promise-or-async-action-map
+               state#)))))))

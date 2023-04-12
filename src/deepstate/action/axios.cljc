@@ -60,13 +60,13 @@
       response parsing"
      [key
       action
-      axios-action-map-or-axios-action
+      axios-promise-or-axios-action-map
       state]
 
      (let [{axios-action ::action/axios
-            :as axios-action-map} (if (map? axios-action-map-or-axios-action)
-                                    axios-action-map-or-axios-action
-                                    {::action/axios axios-action-map-or-axios-action})
+            :as axios-action-map} (if (map? axios-promise-or-axios-action-map)
+                                    axios-promise-or-axios-action-map
+                                    {::action/axios axios-promise-or-axios-action-map})
 
            axios-action-map (-> axios-action-map
                                 (dissoc ::action/axios)
@@ -91,7 +91,7 @@
       provide the form returning the axios promise"
      [key
       [state-bindings action-bindings]
-      axios-action-map-or-axios-action]
+      axios-promise-or-axios-action-map]
 
      `(defmethod action/handle ~key
         [action#]
@@ -100,4 +100,8 @@
 
           (fn [state#]
             (let [~state-bindings state#]
-              (axios-action ~key action# ~axios-action-map-or-axios-action state#)))))))
+              (axios-action
+               ~key
+               action#
+               ~axios-promise-or-axios-action-map
+               state#)))))))
