@@ -14,6 +14,27 @@
      (:require-macros
       [deepstate.action])))
 
+;; --choices--
+;;
+;; (handle <ActionMap>) -> ActionEffects
+;;
+;; but what is ActionEffects
+;;
+;; --
+;; should ActionEffects be a function of state ? e.g.
+;;
+;; `ActionEffects` = (f state) ->
+;;                     {::state <state'>
+;;                      ::navigate <url>
+;;                      ::dispatch <ActionMap>|[<ActionMap>]
+;;                      ::effects Promise<ActionEffects>}
+;;
+;; NO: since we only have access to state in the reducer fn, then this
+;; ActionEffects must be processed in the reducer fn - but the reducer fn
+;; must be pure, and in any case has no access to enough context to dispatch,
+;; so this approach is not possible
+;;
+
 #?(:cljs
    (defmulti ^:no-doc handle
      "handle a possibly asynchronous action
@@ -22,11 +43,11 @@
                  which identifies the handler multimethod
 
       returns:
-        `ActionEffects` = (f state)
-                          | {::update-now (f state)
-                             ::navigate (f state)
-                             ::dispatch <`ActionMap>`|[<`ActionMap`>]
-                             ::update-later Promise<`ActionEffects`>}
+        `ActionEffects` = {::update-now (f state) -> state'
+                           ::navigate (f state) -> url
+                           ::dispatch <`ActionMap>`|[<`ActionMap`>]
+                           ::update-later Promise<`ActionEffects`>}
+                          | (f state) -> state'
                           | Promise<`ActionEffects`>
 
       i.e. handle returns fns of state which will be used
@@ -45,6 +66,9 @@
      (js/console.warn "no handler matching action key: " (pr-str action))))
 
 #?(:cljs
+   (declare dispatch))
+
+#?(:cljs
    (defn ^:private apply-update-state-and-navigate-effects
      "returns a fn which safely applies fn `f` to `state`,
       storing any errors at key `::error`.
@@ -59,6 +83,7 @@
       update-state-effect-fn]
 
      (fn [state]
+       ;; (dispatch _action-context-val ::do-nothing)
        (let [navigate (fn [state]
                         (try
                           (let [url (navigate-effect-fn state)]
@@ -80,9 +105,6 @@
          ;;  (pr-str new-state))
 
          new-state))))
-
-#?(:cljs
-   (declare dispatch))
 
 #?(:cljs
    (defn ^:no-doc apply-dispatch-effect
@@ -134,6 +156,7 @@
                 navigate-fn-eff ::navigate
                 dispatch-eff ::dispatch
                 update-later-eff ::update-later} action-effects]
+
            (when (fn? update-now-eff)
              (react-dispatch (apply-update-state-and-navigate-effects
                               action-context-val
@@ -267,6 +290,15 @@
       (let [{state ::state
              :as _ctx-val} (react/useContext ctx)]
         (get-in state path)))))
+
+#?(:cljs
+   (defn use-action-state-dispatch
+     ([ctx] (use-action-state-dispatch ctx nil))
+     ([ctx path]
+      (let [{state ::state
+             :as ctx-val} (react/useContext ctx)]
+        [(get-in state path)
+         (partial dispatch ctx-val)]))))
 
 #?(:cljs
    #_{:clj-kondo/ignore [:unused-private-var]}
