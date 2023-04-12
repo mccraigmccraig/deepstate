@@ -230,11 +230,12 @@
    (defmacro def-action
      "define a generic action
       - `key` : the action key
+      - `state-bindings` : fn bindings to destructure the state
       - `action-bindings` : fn bindings to destructure the action
       - `body` : any forms which return an action `handle` ActionEffects fn
                  (i.e. a (fn <state>)). can use the `action-bindings`"
      [key
-      [action-bindings]
+      [state-bindings action-bindings]
       & body]
 
      `(defmethod handle ~key
@@ -242,23 +243,19 @@
 
         (let [~action-bindings (remove-action-keys action#)]
 
-          ~@body))))
-
-#?(:cljs
-   (defn state-action
-     [f]
-     (fn [state]
-       {::state (f state)})))
+          (fn [~state-bindings]
+            ~@body)))))
 
 #?(:clj
    (defmacro def-state-action
      "define an action with only state effects
       - `key` : the action key
+      - `state-bindings` : fn bindings to destructure the state
       - `action-bindings` : fn bindings to destructure the action
       - `body` : forms for a (fn <state>)->state .
                  can use the `action-bindings`"
      [key
-      [action-bindings]
+      [state-bindings action-bindings]
       & body]
 
      `(defmethod handle ~key
@@ -266,7 +263,8 @@
 
         (let [~action-bindings (remove-action-keys action#)]
 
-          (state-action  ~@body)))))
+          (fn [~state-bindings]
+            {::state ~@body})))))
 
 #?(:cljs
    (hx/defnc ActionContextProvider

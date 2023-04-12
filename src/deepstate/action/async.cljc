@@ -102,7 +102,8 @@
      [key
       {action-path ::action/path
        :as action}
-      action-promise-or-action-map]
+      action-promise-or-action-map
+      state]
 
      (let [{action-promise ::action/async
             :as action-map} (if (map? action-promise-or-action-map)
@@ -123,38 +124,36 @@
 
        ;; (js/console.info "async-action" (pr-str action-map))
 
-       (fn [state]
+       (let [new-state (update-in state action-path
+                                  merge {::action/status ::action/inflight
+                                         ::action/action action})]
+         (cond->
 
-         (let [new-state (update-in state action-path
-                                    merge {::action/status ::action/inflight
-                                           ::action/action action})]
-           (cond->
+             {::action/state new-state
 
-               {::action/state new-state
+              ::action/later
+              (p/handle
+               action-promise
+               (fn [r e]
+                 (fn [state]
+                   (let [new-state
+                         (if (some? e)
+                           (update-in state action-path
+                                      merge {::action/status ::action/error
+                                             ::action/error e})
 
-                ::action/later
-                (p/handle
-                 action-promise
-                 (fn [r e]
-                   (fn [state]
-                     (let [new-state
-                           (if (some? e)
-                             (update-in state action-path
-                                        merge {::action/status ::action/error
-                                               ::action/error e})
+                           (update-in state action-path
+                                      merge {::action/status ::action/success
+                                             ::action/result r
+                                             ::action/error nil}))]
+                     (cond->
+                         {::action/state new-state}
 
-                             (update-in state action-path
-                                        merge {::action/status ::action/success
-                                               ::action/result r
-                                               ::action/error nil}))]
-                       (cond->
-                           {::action/state new-state}
+                       (some? navigate-fn)
+                       (assoc ::action/navigate (navigate-fn new-state)))))))}
 
-                         (some? navigate-fn)
-                         (assoc ::action/navigate (navigate-fn new-state)))))))}
-
-             (some? navigate-fn)
-             (assoc ::action/navigate (navigate-fn new-state))))))))
+           (some? navigate-fn)
+           (assoc ::action/navigate (navigate-fn new-state)))))))
 
 #?(:clj
    (defmacro def-async-action
@@ -169,7 +168,7 @@
           result or a map as described in `async-action` - may
           refer to `action-bindings`"
      [key
-      [action-bindings]
+      [state-bindings action-bindings]
       action-or-action-map]
 
      `(defmethod action/handle ~key
@@ -177,4 +176,7 @@
 
         (let [~action-bindings (action/remove-action-keys action#)]
 
-          (async-action ~key action# ~action-or-action-map)))))
+          (fn [state#]
+            (let [~state-bindings state#]
+
+              (async-action ~key action# ~action-or-action-map state#)))))))

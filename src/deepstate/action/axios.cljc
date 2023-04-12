@@ -60,7 +60,8 @@
       response parsing"
      [key
       action
-      axios-action-map-or-axios-action]
+      axios-action-map-or-axios-action
+      state]
 
      (let [{axios-action ::action/axios
             :as axios-action-map} (if (map? axios-action-map-or-axios-action)
@@ -75,7 +76,8 @@
        (action.async/async-action
         key
         action
-        axios-action-map))))
+        axios-action-map
+        state))))
 
 #?(:clj
    (defmacro def-axios-action
@@ -88,11 +90,14 @@
       use the `::action/axios` key of the `action-map` to
       provide the form returning the axios promise"
      [key
-      [action-bindings]
+      [state-bindings action-bindings]
       axios-action-map-or-axios-action]
 
      `(defmethod action/handle ~key
         [action#]
 
         (let [~action-bindings (action/remove-action-keys action#)]
-          (axios-action ~key action# ~axios-action-map-or-axios-action)))))
+
+          (fn [state#]
+            (let [~state-bindings state#]
+              (axios-action ~key action# ~axios-action-map-or-axios-action state#)))))))
