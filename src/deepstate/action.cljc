@@ -108,8 +108,12 @@
          (or new-state-eff state)))))
 
 #?(:cljs
-   (defn ^:no-doc dispatch
+   (defn ^:no-doc internal-dispatch
      "dispatch an action to update the state
+
+      should not be called directly from components - a component
+      should use-action and call the dispatch fn returned, which
+      conveniently closes over the action-context-val
 
        - `action-context-val` : the value from an action-context
                           provided by `action-context-provider`
@@ -157,7 +161,7 @@
    #_{:clj-kondo/ignore [:unused-private-var]}
    (defn ^:private make-action-context-val
      "make the value passed around in an action-context ...
-      it encapsulates both the `state` and the state
+      it encapsulates both the `state` and the
       `dispatch` fn from a react `useState` hook"
      [state react-dispatch set-navurl]
      ;; (js/console.warn "make-action-context-val")
@@ -184,7 +188,7 @@
       - `ctx` - the action context"
      [ctx]
      (let [ctx-val (react/useContext ctx)]
-       (partial dispatch ctx-val))))
+       (partial internal-dispatch ctx-val))))
 
 #?(:cljs
    (defn use-action
@@ -192,6 +196,7 @@
 
       - `ctx` - the action context
       - `path` - optional path into state for returned state value
+
       returns:
         [state dispatch]"
      ([ctx] (use-action ctx nil))
@@ -199,7 +204,7 @@
       (let [{state ::state
              :as ctx-val} (react/useContext ctx)]
         [(get-in state path)
-         (partial dispatch ctx-val)]))))
+         (partial internal-dispatch ctx-val)]))))
 
 #?(:cljs
    (defn use-action-state
@@ -228,7 +233,7 @@
 
 #?(:clj
    (defmacro def-action
-     "define a generic action
+     "define a generic action handler
       - `key` : the action key
       - `state-bindings` : fn bindings to destructure the state
       - `action-bindings` : fn bindings to destructure the action
@@ -248,7 +253,7 @@
 
 #?(:clj
    (defmacro def-state-action
-     "define an action with only state effects
+     "define an action handler with only state effects
       - `key` : the action key
       - `state-bindings` : fn bindings to destructure the state
       - `action-bindings` : fn bindings to destructure the action
