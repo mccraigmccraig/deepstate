@@ -29,7 +29,7 @@
 ;;                      ::dispatch <ActionMap>|[<ActionMap>]
 ;;                      ::effects Promise<ActionEffects>}
 ;;
-;; NO: since we only have access to state in the reducer fn, then this
+;; since we only have access to state in the reducer fn, then this
 ;; ActionEffects must be processed in the reducer fn - but the reducer fn
 ;; must be pure, and in any case has no access to enough context to dispatch,
 ;; so this approach is not possible
