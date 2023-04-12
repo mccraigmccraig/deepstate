@@ -123,33 +123,38 @@
 
        ;; (js/console.info "async-action" (pr-str action-map))
 
-       (cond->
+       (fn [state]
 
-           {::action/update-now
-            (fn [state]
-              (update-in state action-path merge {::action/status ::action/inflight
-                                                  ::action/action action}))
+         (let [new-state (update-in state action-path
+                                    merge {::action/status ::action/inflight
+                                           ::action/action action})]
+           (cond->
 
-            ::action/update-later
-            (p/handle
-             action-promise
-             (fn [r e]
-               (cond->
-                   {::action/update-now
-                    (fn [state]
-                      (if (some? e)
-                        (update-in state action-path merge {::action/status ::action/error
-                                                            ::action/error e})
+               {::action/state new-state
 
-                        (update-in state action-path merge {::action/status ::action/success
-                                                            ::action/result r
-                                                            ::action/error nil})))}
+                ::action/later
+                (p/handle
+                 action-promise
+                 (fn [r e]
+                   (fn [state]
+                     (let [new-state
+                           (if (some? e)
+                             (update-in state action-path
+                                        merge {::action/status ::action/error
+                                               ::action/error e})
 
-                 (some? navigate-fn)
-                 (assoc ::action/navigate navigate-fn))))}
+                             (update-in state action-path
+                                        merge {::action/status ::action/success
+                                               ::action/result r
+                                               ::action/error nil}))]
+                       (cond->
+                           {::action/state new-state}
 
-         (some? navigate-fn)
-         (assoc ::action/navigate navigate-fn)))))
+                         (some? navigate-fn)
+                         (assoc ::action/navigate (navigate-fn new-state)))))))}
+
+             (some? navigate-fn)
+             (assoc ::action/navigate (navigate-fn new-state))))))))
 
 #?(:clj
    (defmacro def-async-action

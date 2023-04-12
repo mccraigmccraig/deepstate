@@ -14,27 +14,6 @@
      (:require-macros
       [deepstate.action])))
 
-;; --choices--
-;;
-;; (handle <ActionMap>) -> ActionEffects
-;;
-;; but what is ActionEffects
-;;
-;; --
-;; should ActionEffects be a function of state ? e.g.
-;;
-;; `ActionEffects` = (f state) ->
-;;                     {::state <state'>
-;;                      ::navigate <url>
-;;                      ::dispatch <ActionMap>|[<ActionMap>]
-;;                      ::effects Promise<ActionEffects>}
-;;
-;; since we only have access to state in the reducer fn, then this
-;; ActionEffects must be processed in the reducer fn - but the reducer fn
-;; must be pure, and in any case has no access to enough context to dispatch,
-;; so this approach is not possible
-;;
-
 #?(:cljs
    (defmulti ^:no-doc handle
      "handle a possibly asynchronous action
@@ -43,18 +22,18 @@
                  which identifies the handler multimethod
 
       returns:
-        `ActionEffects` = {::update-now (f state) -> state'
-                           ::navigate (f state) -> url
-                           ::dispatch <`ActionMap>`|[<`ActionMap`>]
-                           ::update-later Promise<`ActionEffects`>}
-                          | (f state) -> state'
-                          | Promise<`ActionEffects`>
+        `ActionEffects` = (f state) ->
+                            {::state <state'>
+                             ::navigate <url>
+                             ::dispatch <ActionMap>|[<ActionMap>]
+                             ::later Promise<ActionEffects>}
 
-      i.e. handle returns fns of state which will be used
-      to update the state. If the action is asynchronous it
-      can return one fn to update the state now and return
-      another when action has completed, potentially
-      recursively"
+      i.e. handle returns a fn of state which, when invoked,
+      returns a map of (all optional) effects, including
+        `::state` - updated state
+        `::navigate` - a url to navigate to
+        `::dispatch` - further ActionMaps to dispatch
+        `::later` - a Promise of another ActionEffects fn"
      (fn [{action-key ::action
            :as _action}]
 
@@ -67,44 +46,6 @@
 
 #?(:cljs
    (declare dispatch))
-
-#?(:cljs
-   (defn ^:private apply-update-state-and-navigate-effects
-     "returns a fn which safely applies fn `f` to `state`,
-      storing any errors at key `::error`.
-
-      if `navigate-fn` is non-nil then it will be passed
-      the updated `state` and is expected to return a url
-      which will be recorded in the navurl state for later
-      navigation"
-     [{set-navurl ::set-navurl
-       :as _action-context-val}
-      navigate-effect-fn
-      update-state-effect-fn]
-
-     (fn [state]
-       ;; (dispatch _action-context-val ::do-nothing)
-       (let [navigate (fn [state]
-                        (try
-                          (let [url (navigate-effect-fn state)]
-                            (when (some? url)
-                              ;; (js/console.info "navigating: " url)
-                              (set-navurl url))
-                            state)
-                          (catch :default e
-                            (assoc state ::error e))))
-
-             new-state (try
-                         (cond-> (update-state-effect-fn state)
-                           (some? navigate-effect-fn) (navigate))
-                         (catch :default e
-                           (assoc state ::error e)))]
-
-         ;; (js/console.debug
-         ;;  "update-and-navigate"
-         ;;  (pr-str new-state))
-
-         new-state))))
 
 #?(:cljs
    (defn ^:no-doc apply-dispatch-effect
@@ -125,86 +66,46 @@
          {:dispatch-effect dispatch-effect})))))
 
 #?(:cljs
-   (defn ^:no-doc apply-effects-loop
-     "given ActionEffects from a `(handle action)`,
-      apply the effects, looping until all
-      promises are resolved
-
-      4 effects are currently supported ...
-      `::update-now` - a fn to apply to `state` to update it
-      `::navigate` - a fn to apply to `state` to get a url to navigate to
-      `::dispatch` - an action-map or list of action-maps to dispatch
-      `::update-later` - a promise of further ActionEffects"
-     [{react-dispatch ::dispatch
+   (defn ^:no-doc action-effects-reducer-action
+     "return a reducer action which can be dispatched
+      to the underlying react reducer
+      `action-context-val` - action context value
+      `action-effects-fn` - a (fn <state>) from (handle <ActionMap>)"
+     [{react-dispatch ::react-dispatch
+       set-navurl ::set-navurl
        :as action-context-val}
-      action-effects]
-     (p/loop [action-effects action-effects]
+      action-effects-fn]
 
-       ;; (js/console.debug
-       ;;  "deepstate.action/apply-effects-loop"
-       ;;  (pr-str action-effects))
+     (fn [state]
+       (let [{new-state-eff ::state
+              navigate-eff ::navigate
+              dispatch-eff ::dispatch
+              later-eff ::later
+              :as _effects} (action-effects-fn state)]
 
-       (cond
-         (fn? action-effects)
-         (react-dispatch (apply-update-state-and-navigate-effects
-                          action-context-val
-                          nil
-                          action-effects))
+         (js/console.debug
+          "action-effects-reducer-action"
+          (pr-str _effects))
 
-         (map? action-effects)
-         (let [{update-now-eff ::update-now
-                navigate-fn-eff ::navigate
-                dispatch-eff ::dispatch
-                update-later-eff ::update-later} action-effects]
+         (when (some? navigate-eff)
+           (set-navurl navigate-eff))
 
-           (when (fn? update-now-eff)
-             (react-dispatch (apply-update-state-and-navigate-effects
-                              action-context-val
-                              navigate-fn-eff
-                              update-now-eff)))
+         (when (some? dispatch-eff)
+           (apply-dispatch-effect action-context-val dispatch-eff))
 
-           ;; fully handle any dispatch effects before any update-later
-           ;; effects
-           (let [update-later-eff
-                 (if (some? dispatch-eff)
-                   (p/handle
-                    (apply-dispatch-effect action-context-val dispatch-eff)
-                    (fn [_ e]
-                      (if (some? e)
-                        #_{:clj-kondo/ignore [:invalid-arity]}
-                        (p/recur (fn [state] (assoc state ::error e)))
-                        (when (p/promise? update-later-eff)
-                          #_{:clj-kondo/ignore [:invalid-arity]}
-                          (p/recur update-later-eff)))))
-                   update-later-eff)]
-             (when (p/promise? update-later-eff)
-               (p/handle
-                update-later-eff
-                (fn [action-effects e]
-                  (if (some? e)
-                    #_{:clj-kondo/ignore [:invalid-arity]}
-                    (p/recur (fn [state] (assoc state ::error e)))
+         (when (some? later-eff)
+           (p/handle
+            later-eff
+            (fn [succ err]
+              (react-dispatch
+               (action-effects-reducer-action
+                action-context-val
+                (if (some? err)
+                  (fn [state] {::state (assoc state ::error err)})
+                  succ))))))
 
-                    #_{:clj-kondo/ignore [:invalid-arity]}
-                    (p/recur action-effects)))))))
-
-         (p/promise? action-effects)
-         (p/handle
-          action-effects
-          (fn [action-effects e]
-            (if (some? e)
-              #_{:clj-kondo/ignore [:invalid-arity]}
-              (p/recur (fn [state] (assoc state ::error e)))
-
-              #_{:clj-kondo/ignore [:invalid-arity]}
-              (p/recur action-effects))))
-
-         :else
-         (p/recur
-          (fn [state]
-            (assoc state ::error
-                   (ex-info "unrecognised action-effects"
-                            {:action-effects action-effects}))))))))
+         ;; return the updated state to the react reducer
+         (or new-state-eff state)))))
 
 #?(:cljs
    (defn dispatch
@@ -213,11 +114,12 @@
        - `action-context-val` : the value from an action-context
                           provided by `action-context-provider`
 
-       - `action` : the action. must have key `::action` which
+       - `action` : an ActionMap. must have key `::action` which
                   identifies the handler multimethod. if the action
                   is just a keyword it will be treated as the
                   `::action` key"
-     [action-context-val
+     [{react-dispatch ::react-dispatch
+       :as action-context-val}
       action]
 
      (js/console.debug
@@ -230,12 +132,15 @@
                     {::action action}
                     action)
 
-           action-effects (handle action)]
+           action-effects-fn (handle action)]
 
        ;; (js/console.log "deepstate.action/dispatch action-effects"
        ;;                 (pr-str action-effects))
 
-       (apply-effects-loop action-context-val action-effects)
+       (react-dispatch
+        (action-effects-reducer-action
+         action-context-val
+         action-effects-fn))
 
        true)))
 
@@ -254,10 +159,10 @@
      "make the value passed around in an action-context ...
       it encapsulates both the `state` and the state
       `dispatch` fn from a react `useState` hook"
-     [state dispatch set-navurl]
+     [state react-dispatch set-navurl]
      ;; (js/console.warn "make-action-context-val")
      {::state state
-      ::dispatch dispatch
+      ::react-dispatch react-dispatch
       ::set-navurl set-navurl}))
 
 #?(:cljs
@@ -267,17 +172,34 @@
      (react/createContext)))
 
 #?(:cljs
-   (defn use-action
+   (defn use-action-context
      "get the value from an `action-context`"
      [ctx]
      (react/useContext ctx)))
 
 #?(:cljs
    (defn use-action-dispatch
-     "get a dispatch fn for an `action-context`"
+     "get a dispatch fn
+
+      - `ctx` - the action context"
      [ctx]
      (let [ctx-val (react/useContext ctx)]
        (partial dispatch ctx-val))))
+
+#?(:cljs
+   (defn use-action
+     "get a state value and dispatch fn
+
+      - `ctx` - the action context
+      - `path` - optional path into state for returned state value
+      returns:
+        [state dispatch]"
+     ([ctx] (use-action ctx nil))
+     ([ctx path]
+      (let [{state ::state
+             :as ctx-val} (react/useContext ctx)]
+        [(get-in state path)
+         (partial dispatch ctx-val)]))))
 
 #?(:cljs
    (defn use-action-state
@@ -290,15 +212,6 @@
       (let [{state ::state
              :as _ctx-val} (react/useContext ctx)]
         (get-in state path)))))
-
-#?(:cljs
-   (defn use-action-state-dispatch
-     ([ctx] (use-action-state-dispatch ctx nil))
-     ([ctx path]
-      (let [{state ::state
-             :as ctx-val} (react/useContext ctx)]
-        [(get-in state path)
-         (partial dispatch ctx-val)]))))
 
 #?(:cljs
    #_{:clj-kondo/ignore [:unused-private-var]}
@@ -318,8 +231,8 @@
      "define a generic action
       - `key` : the action key
       - `action-bindings` : fn bindings to destructure the action
-      - `body` : any forms which return an action `handle` ActionEffects
-                 or a promise thereof. can use the `action-bindings`"
+      - `body` : any forms which return an action `handle` ActionEffects fn
+                 (i.e. a (fn <state>)). can use the `action-bindings`"
      [key
       [action-bindings]
       & body]
@@ -332,6 +245,30 @@
           ~@body))))
 
 #?(:cljs
+   (defn state-action
+     [f]
+     (fn [state]
+       {::state (f state)})))
+
+#?(:clj
+   (defmacro def-state-action
+     "define an action with only state effects
+      - `key` : the action key
+      - `action-bindings` : fn bindings to destructure the action
+      - `body` : forms for a (fn <state>)->state .
+                 can use the `action-bindings`"
+     [key
+      [action-bindings]
+      & body]
+
+     `(defmethod handle ~key
+        [action#]
+
+        (let [~action-bindings (remove-action-keys action#)]
+
+          (state-action  ~@body)))))
+
+#?(:cljs
    (hx/defnc ActionContextProvider
      [{context :context
        initial-arg :initial-arg
@@ -340,12 +277,12 @@
      ;; since this is where state is stored
      {:helix/features {:fast-refresh true}}
 
-     (let [[state dispatch] (hooks/use-reducer action-fn-reducer initial-arg)
+     (let [[state react-dispatch] (hooks/use-reducer action-fn-reducer initial-arg)
 
            ;; navurl will receive an optional url to navigate to after
            ;; an action is handled
            [navurl set-navurl] (hooks/use-state nil)
-           val (make-action-context-val state dispatch set-navurl)
+           val (make-action-context-val state react-dispatch set-navurl)
 
            navigate (nav/navigator)]
 
