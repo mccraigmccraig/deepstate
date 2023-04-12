@@ -13,57 +13,31 @@
       [deepstate.action.async])))
 
 #?(:cljs
-   (defn async-navigate-fn
-     "takes a fn of
-        {`::action/state` `<action-state>`
-         `::action/path` `<action-state-path-in-full-state>`
-         `:deepstate/state` `<full-state>`}
-      and adapts it to be a fn of the `<full-state>`
+   (defn async-navigate-url
+     [{navigate-url ::action/navigate
+       inflight-navigate-url ::action/navigate-inflight
+       success-navigate-url ::action/navigate-success
+       error-navigate-url ::action/navigate-error
+       :as _action-map}
+      action-path
+      state]
 
-     this allows the navigate-fns supplied to `async-action` to
-     easily destructure the specific state resulting from the
-     action, or to examine the entire current state"
+     (let [{action-status ::action/status
+            :as _action-state} (get-in state action-path)]
+       (cond
+         (some? navigate-url) navigate-url
 
-     [action-path
-      {navigate-fn ::action/navigate
-       inflight-navigate-fn ::action/navigate-inflight
-       success-navigate-fn ::action/navigate-success
-       error-navigate-fn ::action/navigate-error
-       :as _action-map}]
+         (and (= ::action/inflight action-status)
+              (some? inflight-navigate-url))
+         inflight-navigate-url
 
-     (let [choose-navigate-fn
-           (cond
-             (some? navigate-fn)
-             navigate-fn
+         (and (= ::action/success action-status)
+              (some? success-navigate-url))
+         success-navigate-url
 
-             (or (some? inflight-navigate-fn)
-                 (some? success-navigate-fn)
-                 (some? error-navigate-fn))
-             (fn [{{action-status ::action/status
-                    :as _action-state} ::action/state
-                   :as async-nav-state}]
-
-               ;; (js/console.info "nav status" (pr-str action-status))
-               (cond
-                 (and (= ::action/inflight action-status)
-                      (some? inflight-navigate-fn))
-                 (inflight-navigate-fn async-nav-state)
-
-                 (and (= ::action/success action-status)
-                      (some? success-navigate-fn))
-                 (success-navigate-fn async-nav-state)
-
-                 (and (= ::action/error action-status)
-                      (some? error-navigate-fn))
-                 (error-navigate-fn async-nav-state))))]
-
-       (when (some? choose-navigate-fn)
-         (fn [full-state]
-           (let [action-state (get-in full-state action-path)]
-             (choose-navigate-fn
-              {::action/state action-state
-               ::action/path action-path
-               :deepstate/state full-state})))))))
+         (and (= ::action/error action-status)
+              (some? error-navigate-url))
+         error-navigate-url))))
 
 #?(:cljs
    (defn async-action
@@ -86,19 +60,13 @@
         `::action/result` - the result value
         `::action/error` - any error value
 
-       if an `::action/navigate` fn is supplied then it will be used to
-       navigate each time the action value is rendered (including
-       `::action/inflight`). the navigate fn will be called with a map of
-       {`::action/state` `<action-state>`
-        `::action/path` `<action-state-path-in-full-state>`
-        `:deepstate/state` `<full-state>`}
-       so it can easily destructure the state of the action or the
-       whole state, and is expected to return a url string to navigate to or
-       `nil`
+       if an `::action/navigate` url is supplied then it will be used to
+       navigate each time the action is handled (including
+       `::action/inflight`)
 
        `::action/navigate-inflight`, `::action/navigate-success` and
        `::action/navigate-error` keys are also available to navigate
-       only on some conditions"
+       only on particular conditions"
      [key
       {action-path ::action/path
        :as action}
@@ -118,15 +86,14 @@
                              (throw
                               (ex-info "key is not a seq or keyword"
                                        {:key key
-                                        :action action}))))
-
-           navigate-fn (async-navigate-fn action-path action-map)]
+                                        :action action}))))]
 
        ;; (js/console.info "async-action" (pr-str action-map))
 
        (let [new-state (update-in state action-path
                                   merge {::action/status ::action/inflight
-                                         ::action/action action})]
+                                         ::action/action action})
+             navigate-url (async-navigate-url action-map action-path new-state)]
          (cond->
 
              {::action/state new-state
@@ -145,15 +112,20 @@
                            (update-in state action-path
                                       merge {::action/status ::action/success
                                              ::action/result r
-                                             ::action/error nil}))]
+                                             ::action/error nil}))
+
+                         navigate-url (async-navigate-url
+                                       action-map
+                                       action-path
+                                       new-state)]
                      (cond->
                          {::action/state new-state}
 
-                       (some? navigate-fn)
-                       (assoc ::action/navigate (navigate-fn new-state)))))))}
+                       (some? navigate-url)
+                       (assoc ::action/navigate navigate-url))))))}
 
-           (some? navigate-fn)
-           (assoc ::action/navigate (navigate-fn new-state)))))))
+           (some? navigate-url)
+           (assoc ::action/navigate navigate-url))))))
 
 #?(:clj
    (defmacro def-async-action
