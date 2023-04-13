@@ -1,0 +1,5 @@
+{:lint-as
+ {deepstate.action/def-action clojure.core/defn
+  deepstate.action/def-state-action clojure.core/defn
+  deepstate.action.async/def-async-action clojure.core/defn
+  deepstate.action.axios/def-axios-action clojure.core/defn}}
