@@ -6,9 +6,9 @@
 
 A ClojureScript microlib for state management in a [Helix](https://github.com/lilactown/helix)-based React app
 
-## The problem
+## Summary
 
-deepstate provides some simple hooks-based state management primitives which
+deepstate provides simple hooks-based state management primitives which
 probably aren't very performant as the single source of truth in a large app
 (there are no reactions), but are simple, flexible, and straightforward
 to use in an async world.
@@ -18,6 +18,7 @@ to use in an async world.
 ``` clojure
 (require '[deepstate.action :as a])
 (require '[deepstate.action.async :as a.async])
+(require '[deepstate.action.async :as a.axios]')
 ```
 
 ## Model and state
@@ -27,18 +28,21 @@ deepstate reduces a stream of events onto a state value.
 There are a few core concepts:
 
 * `action-context` - a React context for some deepstate state
-* `action-context-provider` - an element providing an `action-context` to
-  a component tree
-* `use-action` - a hook used by components to interact with state. It
-  returns a `state` value and a `dispatch` function
-* `dispatch` - a fn returned by the `use-action` hook which sends an
-  action to be handled
-* `def-action` - a macro which defines a generic action handler. There
-  are more specialised variants such as
-  * `def-state-action` - defines an action handler which only modifies stat:e
-  * `def-async-action` - defines an action handler which runs a promise-based
-       async computation and records the status and result in a standard schema
-  * `def-axios-action` - an async action which parses axios results:
+* [[deepstate.action/action-context-provider]] - an element providing 
+   an `action-context` to a component tree
+* [[deepstate.action/use-action]] - a hook used by components to interact 
+   with state. It returns a `state` value and a `dispatch` function
+* `dispatch` - a fn returned by the [[deepstate.action/use-action]] hook which
+   sends an action to be handled
+* [[deepstate.action/def-action]] - a macro which defines a generic action
+  handler. There are more specialised variants such as:
+  * [[deepstate.action/def-state-action]] - defines an action handler 
+     which only modifies stat:e
+  * [[deepstate.action.async/def-async-action]] - defines an action handler
+     which runs a promise-based async computation and records the status 
+     and result in a standard schema
+  * [[deepstate.action.axios/def-axios-action]] - an async action which 
+    parses axios results
 
 ## A simple example
 
