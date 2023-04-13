@@ -248,8 +248,9 @@
 
         (let [~action-bindings (remove-action-keys action#)]
 
-          (fn [~state-bindings]
-            ~@body)))))
+          (fn [state#]
+            (let [~state-bindings state#]
+              ~@body))))))
 
 #?(:clj
    (defmacro def-state-action
@@ -260,16 +261,13 @@
       - `body` : forms for a (fn <state>)->state .
                  can use the `action-bindings`"
      [key
-      [state-bindings action-bindings]
+      bindings
       & body]
 
-     `(defmethod handle ~key
-        [action#]
-
-        (let [~action-bindings (remove-action-keys action#)]
-
-          (fn [~state-bindings]
-            {::state ~@body})))))
+     `(def-action
+        ~key
+        ~bindings
+        {::state ~@body})))
 
 #?(:cljs
    (hx/defnc ActionContextProvider
