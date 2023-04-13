@@ -15,20 +15,25 @@
       [deepstate.action])))
 
 #?(:cljs
-   (defmulti ^:no-doc handle
+   (defmulti handle
      "handle a possibly asynchronous action
 
-      - `action` : the `ActionMap.` must have key `::action`
+      macros such as
+      [[def-action]], [[def-state-action]] and
+      [[deepstate.action.async/def-async-action]] provide
+      sugar to create implementations of this multimethod
+
+      - `action` : the `action` map. must have key `::action`
                  which identifies the handler multimethod
 
       returns:
-        `ActionEffects` = (f state) ->
+        `action-effects` = (f state) ->
                             {::state <state'>
                              ::navigate <url>
                              ::dispatch <ActionMap>|[<ActionMap>]
                              ::later Promise<ActionEffects>}
 
-      i.e. handle returns a fn of state which, when invoked,
+      i.e. handle returns a fn of `state` which, when invoked,
       returns a map of (all optional) effects, including
         `::state` - updated state
         `::navigate` - a url to navigate to

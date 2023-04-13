@@ -13,7 +13,7 @@
       [deepstate.action.async])))
 
 #?(:cljs
-   (defn async-navigate-url
+   (defn ^:private async-navigate-url
      [{navigate-url ::action/navigate
        inflight-navigate-url ::action/navigate-inflight
        success-navigate-url ::action/navigate-success
@@ -40,7 +40,7 @@
          error-navigate-url))))
 
 #?(:cljs
-   (defn get-action-path
+   (defn ^:private get-action-path
      "determine the path of the async-action-state in the global state"
      [key
       {action-path ::action/path
@@ -56,7 +56,7 @@
                       :action action}))))))
 
 #?(:cljs
-   (defn get-async-action-state
+   (defn ^:no-doc get-async-action-state
      "fetch async-action-state from global state"
      [key state action]
      (get-in state (get-action-path key action))))
@@ -64,20 +64,21 @@
 #?(:cljs
    (defn async-action
      "a promise-based async action handler providing a consistent
-      format for handling and recording emerging action state, and
+      format for handling and recording emerging `async-action-state`, and
       for interacting with navigation
 
       - `key` : the `::action/key` to match a `dispatch`. identifies the action,
-           and is the default path of the action state in `state`
+           and is the default path of the `async-action-state` in `state`
       - `state` : the global state
-      - ``action` : the action value being handled
+      - `action` : the action value being handled
         - `::action/path` - instead of updating the `state` at `key`,
                             update the `state` at `path`
       - `handler-promise-or-async-handler-map` : a promise of a result,
-           or a map `{::action/async Promise<action-result>
-                      ::action/navigate[-*] <url>}`
+           or a map {`::action/async` `Promise<action-result>`
+                     `::action/navigate`[-*] `<url>`}
 
-      `state` will be updated at `::action-path` with a map with these keys:
+      `async-action-state` will be updated at `::action-path` with a map
+       with these keys:
         `::action/status` - ::inflight, ::success or ::error
         `::action/action` - the action value
         `::action/result` - the result value
@@ -142,22 +143,14 @@
            (assoc ::action/navigate navigate-url))))))
 
 #?(:clj
-   (defmacro def-async-action
-     "define an action handler to service a promise-based async action,
-      setting initial async-action-state and updating async-action-state after the
-      action has completed in a common schema described in `async-action`
-
-       - `key` : the action key and the path in the `state` for
-               the request status and response value data
-       - `state-bindings` : fn bindings to destructure the global state map
-       - `async-action-state-bindings` : fn bindings to destructure the async-action-state map
-       - `action-bindings` : fn bindings to destructure the action map
-       - `handler-promise-or-async-handler-map` : form returning a promise of
-          the action data or a map as described in `async-action` - may
-          refer to any of the destructured bindings"
+   (defmacro def-async-action-bindings
+     "a macro to establish bindings used by other async-action macros.
+      both [[def-async-action]] and [[deepstate.action.axios/def-axios-action]]
+      defer to this macro to establish bindings"
      [key
       [state-bindings async-action-state-bindings action-bindings]
-      handler-promise-or-async-handler-map]
+      handler-promise-or-async-handler-map
+      handler-fn]
 
      `(defmethod action/handle ~key
         [action#]
@@ -169,8 +162,41 @@
             (let [~state-bindings state#
                   ~async-action-state-bindings (get-async-action-state ~key state# action#)]
 
-              (async-action
+              (~handler-fn
                ~key
                state#
                action#
                ~handler-promise-or-async-handler-map)))))))
+
+#?(:clj
+   (defmacro def-async-action
+     "define an action handler to service a promise-based async action
+
+      an `async-action-state` map will be initialised at a path in the global
+      `state` map, and updated after the action has completed.
+      `async-action-state` will have shape:
+
+        {`::action/status` `::inflight|::success|::error`
+         `::action/action` `<action-map>`
+         `::action/data` `<action-data>`
+         `::action/error` `<action-error>`}
+
+       - `key` : the action key and the default path in the `state` for
+               the `async-action-state`
+       - `state-bindings` : fn bindings to destructure the global `state` map
+       - `async-action-state-bindings` : fn bindings to destructure the `async-action-state` map
+       - `action-bindings` : fn bindings to destructure the `action` map
+       - `handler-promise-or-async-handler-map` : form returning a promise of
+          the `<action-data>` or a map with shape:
+          {`::a/async` `Promise<action-data>`
+           `::a/navigate`[-*] `<url>`  }
+          may refer to any of the destructured bindings"
+     [key
+      [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
+      handler-promise-or-async-handler-map]
+
+     `(def-async-action-bindings
+        ~key
+        ~bindings
+        ~handler-promise-or-async-handler-map
+        async-action)))

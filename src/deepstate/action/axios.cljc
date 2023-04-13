@@ -21,6 +21,7 @@
 
 #?(:cljs
    (defn parse-axios-success-response
+     "parse errored axios API responses"
      [{data :data
        status :status
        content-type :content-type
@@ -32,6 +33,7 @@
 
 #?(:cljs
    (defn parse-axios-error-response
+     "parse successful axios API responses"
      [r]
      (let [{err-message :message
             err-stack :stack
@@ -46,7 +48,7 @@
 
 #?(:cljs
    (defn handle-axios-response
-     "parse API response branches into data"
+     "parse both axios API response branches"
      [api-promise]
      (p/handle
       api-promise
@@ -57,8 +59,8 @@
 
 #?(:cljs
    (defn axios-action
-     "perform an axios-action - an async-action with
-      response parsing"
+     "function to perform an axios-action - an async-action with
+      response parsing. invoked from expansions of the `def-axios-action` macro"
      [key
       state
       action
@@ -82,34 +84,18 @@
 
 #?(:clj
    (defmacro def-axios-action
-     "define an axios based async action - it's just an
-      async-action with a little parsing of the axios
-      responses to make things friendlier
+     "define an axios based async action - it's like an
+      [[deepstate.action.async/def-async-action]] with parsing
+      of the axios responses to make things friendlier
 
-      cf `deepstate.action.async/def-async-action`
-
-      use the `::action/axios` key of the `action-map` to
-      provide the form returning the axios promise"
+      use the `::action/axios` key of the `axios-promise-or-axios-handler-map`
+      to provide the form returning the axios promise"
      [key
-      [state-bindings async-action-state-bindings action-bindings]
+      [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
       axios-promise-or-axios-handler-map]
 
-     `(defmethod action/handle ~key
-        [action#]
-
-        (let [~action-bindings (action/remove-action-keys action#)]
-
-          (fn [state#]
-
-            (let [~state-bindings state#
-
-                  ~async-action-state-bindings (action.async/get-async-action-state
-                                                ~key
-                                                state#
-                                                action#)]
-
-              (axios-action
-               ~key
-               state#
-               action#
-               ~axios-promise-or-axios-handler-map)))))))
+     `(action.async/def-async-action-bindings
+        ~key
+        ~bindings
+        ~axios-promise-or-axios-handler-map
+        axios-action)))
