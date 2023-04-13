@@ -23,7 +23,7 @@
       state]
 
      (let [{action-status ::action/status
-            :as _action-state} (get-in state action-path)]
+            :as _async-action-state} (get-in state action-path)]
        (cond
          (some? navigate-url) navigate-url
 
@@ -41,7 +41,7 @@
 
 #?(:cljs
    (defn get-action-path
-     "determint the path of the action-state in the global state"
+     "determine the path of the async-action-state in the global state"
      [key
       {action-path ::action/path
        :as action}]
@@ -56,8 +56,8 @@
                       :action action}))))))
 
 #?(:cljs
-   (defn get-action-state
-     "fetch action-state from global state"
+   (defn get-async-action-state
+     "fetch async-action-state from global state"
      [key state action]
      (get-in state (get-action-path key action))))
 
@@ -144,19 +144,19 @@
 #?(:clj
    (defmacro def-async-action
      "define an action handler to service a promise-based async action,
-      setting initial action-state and updating action-state after the
+      setting initial async-action-state and updating async-action-state after the
       action has completed in a common schema described in `async-action`
 
        - `key` : the action key and the path in the `state` for
                the request status and response value data
        - `state-bindings` : fn bindings to destructure the global state map
-       - `action-state-bindings` : fn bindings to destructure the action-state map
+       - `async-action-state-bindings` : fn bindings to destructure the async-action-state map
        - `action-bindings` : fn bindings to destructure the action map
        - `handler-promise-or-async-handler-map` : form returning a promise of
           the action data or a map as described in `async-action` - may
           refer to any of the destructured bindings"
      [key
-      [state-bindings action-state-bindings action-bindings]
+      [state-bindings async-action-state-bindings action-bindings]
       handler-promise-or-async-handler-map]
 
      `(defmethod action/handle ~key
@@ -167,7 +167,7 @@
           (fn [state#]
 
             (let [~state-bindings state#
-                  ~action-state-bindings (get-action-state ~key state# action#)]
+                  ~async-action-state-bindings (get-async-action-state ~key state# action#)]
 
               (async-action
                ~key

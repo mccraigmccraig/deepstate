@@ -91,7 +91,7 @@
       use the `::action/axios` key of the `action-map` to
       provide the form returning the axios promise"
      [key
-      [state-bindings action-state-bindings action-bindings]
+      [state-bindings async-action-state-bindings action-bindings]
       axios-promise-or-axios-handler-map]
 
      `(defmethod action/handle ~key
@@ -103,10 +103,10 @@
 
             (let [~state-bindings state#
 
-                  ~action-state-bindings (action.async/get-action-state
-                                          ~key
-                                          state#
-                                          action#)]
+                  ~async-action-state-bindings (action.async/get-async-action-state
+                                                ~key
+                                                state#
+                                                action#)]
 
               (axios-action
                ~key
