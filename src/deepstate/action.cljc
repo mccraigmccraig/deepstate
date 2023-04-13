@@ -237,7 +237,7 @@
           (into {}))))
 
 #?(:clj
-   (defmacro def-action
+   (defmacro {:cljdoc/languages ["cljs"]} def-action
      "define a generic action handler
       - `key` : the action key
       - `state-bindings` : fn bindings to destructure the state
@@ -258,7 +258,7 @@
               ~@body))))))
 
 #?(:clj
-   (defmacro def-state-action
+   (defmacro {:cljdoc/languages ["cljs"]} def-state-action
      "define an action handler with only state effects
       - `key` : the action key
       - `state-bindings` : fn bindings to destructure the state
@@ -310,7 +310,7 @@
         child))))
 
 #?(:clj
-   (defmacro action-context-provider
+   (defmacro {:cljdoc/languages ["cljs"]} action-context-provider
      "a ContextProvider element to provide an action-context
 
        props:
