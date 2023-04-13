@@ -143,7 +143,7 @@
            (assoc ::action/navigate navigate-url))))))
 
 #?(:clj
-   (defmacro {:cljdoc/languages ["cljs"]} def-async-action-bindings
+   (defmacro def-async-action-bindings
      "a macro to establish bindings used by other async-action macros.
       both [[def-async-action]] and [[deepstate.action.axios/def-axios-action]]
       defer to this macro to establish bindings"
@@ -169,7 +169,7 @@
                ~handler-promise-or-async-handler-map)))))))
 
 #?(:clj
-   (defmacro {:cljdoc/languages ["cljs"]} def-async-action
+   (defmacro def-async-action
      "define an action handler to service a promise-based async action
 
       an `async-action-state` map will be initialised at a path in the global

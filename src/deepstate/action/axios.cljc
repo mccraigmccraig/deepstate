@@ -83,7 +83,7 @@
         axios-action-map))))
 
 #?(:clj
-   (defmacro {:cljdoc/languages ["cljs"]} def-axios-action
+   (defmacro def-axios-action
      "define an axios based async action - it's like an
       [[deepstate.action.async/def-async-action]] with parsing
       of the axios responses to make things friendlier
