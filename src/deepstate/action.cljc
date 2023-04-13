@@ -45,7 +45,7 @@
      (js/console.warn "no handler matching action key: " (pr-str action))))
 
 #?(:cljs
-   (declare dispatch))
+   (declare internal-dispatch))
 
 #?(:cljs
    (defn ^:private apply-dispatch-effect
@@ -53,11 +53,11 @@
       dispatch-effect]
      (cond
        (map? dispatch-effect)
-       (dispatch action-context-val dispatch-effect)
+       (internal-dispatch action-context-val dispatch-effect)
 
        (sequential? dispatch-effect)
        (doseq [deff dispatch-effect]
-         (dispatch action-context-val deff))
+         (internal-dispatch action-context-val deff))
 
        :else
        (throw
