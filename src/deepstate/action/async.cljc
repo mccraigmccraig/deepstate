@@ -81,7 +81,7 @@
        with these keys:
         `::action/status` - ::inflight, ::success or ::error
         `::action/action` - the action value
-        `::action/result` - the result value
+        `::action/data` - the happy-path result of the action
         `::action/error` - any error value
 
        if an `::action/navigate` url is supplied then it will be used to
@@ -126,7 +126,7 @@
 
                            (update-in state ap
                                       merge {::action/status ::action/success
-                                             ::action/result r
+                                             ::action/data r
                                              ::action/error nil}))
 
                          navigate-url (async-navigate-url
