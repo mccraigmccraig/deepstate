@@ -40,6 +40,28 @@
          error-navigate-url))))
 
 #?(:cljs
+   (defn get-action-path
+     "determint the path of the action-state in the global state"
+     [key
+      {action-path ::action/path
+       :as action}]
+     (or action-path
+         (cond
+           (sequential? key) (vec key)
+           (keyword? key) [key]
+           :else
+           (throw
+            (ex-info "key is not a seq or keyword"
+                     {:key key
+                      :action action}))))))
+
+#?(:cljs
+   (defn get-action-state
+     "fetch action-state from global state"
+     [key state action]
+     (get-in state (get-action-path key action))))
+
+#?(:cljs
    (defn async-action
      "a promise-based async action handler providing a consistent
       format for handling and recording emerging action state, and
@@ -47,14 +69,15 @@
 
       - `key` : the `::action/key` to match a `dispatch`. identifies the action,
            and is the default path of the action state in `state`
-      - `action` : the action value being handled
+      - `state` : the global state
+      - ``action` : the action value being handled
         - `::action/path` - instead of updating the `state` at `key`,
                             update the `state` at `path`
-      - `action-promise-or-async-action-map` : a promise of a result,
-           or a map `{::action/async <action-promise>
-                      ::action/navigate <navigate-fn>}`
+      - `handler-promise-or-async-handler-map` : a promise of a result,
+           or a map `{::action/async Promise<action-result>
+                      ::action/navigate[-*] <url>}`
 
-      `state` will be updated with a map with these keys:
+      `state` will be updated at `::action-path` with a map with these keys:
         `::action/status` - ::inflight, ::success or ::error
         `::action/action` - the action value
         `::action/result` - the result value
@@ -68,32 +91,23 @@
        `::action/navigate-error` keys are also available to navigate
        only on particular conditions"
      [key
-      {action-path ::action/path
-       :as action}
-      action-promise-or-async-action-map
-      state]
+      state
+      action
+      handler-promise-or-async-handler-map]
 
      (let [{action-promise ::action/async
-            :as action-map} (if (map? action-promise-or-async-action-map)
-                              action-promise-or-async-action-map
-                              {::action/async action-promise-or-async-action-map})
+            :as action-map} (if (map? handler-promise-or-async-handler-map)
+                              handler-promise-or-async-handler-map
+                              {::action/async handler-promise-or-async-handler-map})
 
-           action-path (or action-path
-                           (cond
-                             (sequential? key) (vec key)
-                             (keyword? key) [key]
-                             :else
-                             (throw
-                              (ex-info "key is not a seq or keyword"
-                                       {:key key
-                                        :action action}))))]
+           ap (get-action-path key action)]
 
        ;; (js/console.info "async-action" (pr-str action-map))
 
-       (let [new-state (update-in state action-path
+       (let [new-state (update-in state ap
                                   merge {::action/status ::action/inflight
                                          ::action/action action})
-             navigate-url (async-navigate-url action-map action-path new-state)]
+             navigate-url (async-navigate-url action-map ap new-state)]
          (cond->
 
              {::action/state new-state
@@ -105,18 +119,18 @@
                  (fn [state]
                    (let [new-state
                          (if (some? e)
-                           (update-in state action-path
+                           (update-in state ap
                                       merge {::action/status ::action/error
                                              ::action/error e})
 
-                           (update-in state action-path
+                           (update-in state ap
                                       merge {::action/status ::action/success
                                              ::action/result r
                                              ::action/error nil}))
 
                          navigate-url (async-navigate-url
                                        action-map
-                                       action-path
+                                       ap
                                        new-state)]
                      (cond->
                          {::action/state new-state}
@@ -130,18 +144,20 @@
 #?(:clj
    (defmacro def-async-action
      "define an action handler to service a promise-based async action,
-      setting initial state and state after the action has completed
-      in a common schema described in `async-action`
+      setting initial action-state and updating action-state after the
+      action has completed in a common schema described in `async-action`
 
        - `key` : the action key and the path in the `state` for
                the request status and response value data
+       - `state-bindings` : fn bindings to destructure the global state map
+       - `action-state-bindings` : fn bindings to destructure the action-state map
        - `action-bindings` : fn bindings to destructure the action map
-       - `action-promise-or-async-action-map` : form returning a promise of the
-          result or a map as described in `async-action` - may
-          refer to `action-bindings`"
+       - `handler-promise-or-async-handler-map` : form returning a promise of
+          the action data or a map as described in `async-action` - may
+          refer to any of the destructured bindings"
      [key
-      [state-bindings action-bindings]
-      action-promise-or-async-action-map]
+      [state-bindings action-state-bindings action-bindings]
+      handler-promise-or-async-handler-map]
 
      `(defmethod action/handle ~key
         [action#]
@@ -149,10 +165,12 @@
         (let [~action-bindings (action/remove-action-keys action#)]
 
           (fn [state#]
-            (let [~state-bindings state#]
+
+            (let [~state-bindings state#
+                  ~action-state-bindings (get-action-state ~key state# action#)]
 
               (async-action
                ~key
+               state#
                action#
-               ~action-promise-or-async-action-map
-               state#)))))))
+               ~handler-promise-or-async-handler-map)))))))

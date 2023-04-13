@@ -1,7 +1,8 @@
 (ns deepstate.action.axios
   #?(:clj
      (:require
-      [deepstate.action :as-alias action]))
+      [deepstate.action :as-alias action]
+      [deepstate.action.async :as action.async]))
 
   #?(:cljs
      (:require
@@ -59,14 +60,14 @@
      "perform an axios-action - an async-action with
       response parsing"
      [key
+      state
       action
-      axios-promise-or-axios-action-map
-      state]
+      axios-promise-or-axios-handler-map]
 
      (let [{axios-action ::action/axios
-            :as axios-action-map} (if (map? axios-promise-or-axios-action-map)
-                                    axios-promise-or-axios-action-map
-                                    {::action/axios axios-promise-or-axios-action-map})
+            :as axios-action-map} (if (map? axios-promise-or-axios-handler-map)
+                                    axios-promise-or-axios-handler-map
+                                    {::action/axios axios-promise-or-axios-handler-map})
 
            axios-action-map (-> axios-action-map
                                 (dissoc ::action/axios)
@@ -75,9 +76,9 @@
 
        (action.async/async-action
         key
+        state
         action
-        axios-action-map
-        state))))
+        axios-action-map))))
 
 #?(:clj
    (defmacro def-axios-action
@@ -90,8 +91,8 @@
       use the `::action/axios` key of the `action-map` to
       provide the form returning the axios promise"
      [key
-      [state-bindings action-bindings]
-      axios-promise-or-axios-action-map]
+      [state-bindings action-state-bindings action-bindings]
+      axios-promise-or-axios-handler-map]
 
      `(defmethod action/handle ~key
         [action#]
@@ -99,9 +100,16 @@
         (let [~action-bindings (action/remove-action-keys action#)]
 
           (fn [state#]
-            (let [~state-bindings state#]
+
+            (let [~state-bindings state#
+
+                  ~action-state-bindings (action.async/get-action-state
+                                          ~key
+                                          state#
+                                          action#)]
+
               (axios-action
                ~key
+               state#
                action#
-               ~axios-promise-or-axios-action-map
-               state#)))))))
+               ~axios-promise-or-axios-handler-map)))))))
