@@ -19,7 +19,7 @@ but are simple, flexible, and straightforward to use in an async world.
 ``` clojure
 (require '[deepstate.action :as a])
 (require '[deepstate.action.async :as a.a])
-(require '[deepstate.action.axios :as a.ax]')
+(require '[deepstate.action.axios :as a.ax])
 ```
 
 ## Model and state
@@ -30,21 +30,24 @@ There are a few core concepts:
 
 * `action-context` - a React context for some deepstate state. Hooks need to
    be passed such a context
-* [[deepstate.action/action-context-provider]] - an element providing
-   an `action-context` to a component tree
-* [[deepstate.action/use-action]] - a hook used by components to interact
-   with state. It returns a `state` value and a `dispatch` function
+* [action-context-provider](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#action-context-provider) - 
+   an element providing an `action-context` to a component tree
+* [use-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#use-action) - 
+   a hook used by components to interact with state. It returns a `state`
+   value and a `dispatch` function
 * `dispatch` - a fn returned by the [[deepstate.action/use-action]] hook which
    sends an action to be handled
-* [[deepstate.action/def-action]] - a macro which defines a generic action
-  handler. There are more specialised variants such as:
-  * [[deepstate.action/def-state-action]] - defines an action handler
-     which only modifies state
-  * [[deepstate.action.async/def-async-action]] - defines an action handler
-     which runs a promise-based async computation and records the status
-     and result in a standard schema
-  * [[deepstate.action.axios/def-axios-action]] - an async action for
-    axios requests which parses the responses
+* [def-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#def-action) -
+  a macro which defines a generic action handler. There are more specialised
+  variants such as:
+  * [def-state-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#def-state-action) - 
+    defines an action handler which only modifies state
+  * [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.async#def-async-action) - 
+    defines an action handler which runs a promise-based async computation and 
+    records the status and result in a standard schema
+  * [def-axios-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.axios#def-axios-action) - 
+    an async action for [axios](https://axios-http.com/) requests which 
+    parses the responses
 
 ## A simple example
 
@@ -159,7 +162,7 @@ There are currently 4 effects available:
 * `::a/later` - a promise of a fn `(fn [state] ...)` -> `action-effects`
       to provide more effects later
 
-## [[deepstate.action/def-action]]
+## [def-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#def-action)
 
 Defines a generic action handler. It takes
 
@@ -177,7 +180,7 @@ Defines a generic action handler. It takes
    ::a/navigate "/show-state"})
 ```
 
-## [[deepstate.action/def-state-action]]
+## [def-state-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#def-state-action)
 
 Defines an action handler which only modifies state - the body form evaluates
 to the updated state (i.e. not an `action-effects` map)
@@ -189,7 +192,7 @@ to the updated state (i.e. not an `action-effects` map)
     :as _action}]
   (assoc state ::query q))
 ```
-## [[deepstate.action.async/def-async-action]]
+## [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.async#def-async-action)
 
 Defines a promise-based async action handler. The action is specified as
 a form returning a promise of the result. The global `state`, the
@@ -218,11 +221,11 @@ global `state` at path `[::run-query]`, with the shape
  ::a/error ...}
 ```
 
-## [[deepstate.action.axios/def-axios-action]]
+## [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.axios#def-axios-action)
 
-Exactly like [[deepstate.action.async/def-async-action]], but the
-`action-data-promise` is expected to be an axios promise, and the response
-or error will be parsed into the `async-action-state`
+Exactly like [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.async#def-async-action),
+but the `action-data-promise` is expected to be an [axios](https://axios-http.com/)
+promise, and the responseor error will be parsed into the `async-action-state`
 
 # license
 
