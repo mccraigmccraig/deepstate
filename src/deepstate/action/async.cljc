@@ -132,24 +132,31 @@
          async-action-data-promise
          (fn [r e]
            (fn [state]
-             (let [new-state (update-in
-                              state
+             (let [new-async-action-state (if (some? e)
+                                            {::action/status ::action/error
+                                             ::action/error e}
+                                            {::action/status ::action/success
+                                             ::action/data r
+                                             ::action/error nil})
+
+                   ;; calculate effects with previous state but new
+                   ;; async-action-state - so the effects calc can consider
+                   ;; the previous state vs the update
+                   {effs-state ::action/state
+                    :as effs} (effects-fn state new-async-action-state)
+
+                   ;; the effects-fn can control the full state, apart from
+                   ;; the async-action-state which will always
+                   ;; be updated
+                   new-state (update-in
+                              (or effs-state state)
                               ap
                               merge
-                              (if (some? e)
-                                {::action/status ::action/error
-                                 ::action/error e}
-                                {::action/status ::action/success
-                                 ::action/data r
-                                 ::action/error nil}))
+                              new-async-action-state)]
 
-                   effs (effects-fn new-state)]
-
-                ;; allow the reaction definition full control of
-               ;; state changes
                (merge
-                {::action/state new-state}
-                effs)))))})))
+                effs
+                {::action/state new-state})))))})))
 
 #?(:clj
    (defmacro async-action-bindings
@@ -157,14 +164,15 @@
       the `action-data-promise` and the `effects-map` can use
       these bindings to destructure the global `state`, the `async-action-state`
       and the `action` map"
-     [key
+     [_key
       [state-bindings async-action-state-bindings action-bindings]
       state
+      async-action-state
       action
       & body]
 
      `(let [~state-bindings ~state
-            ~async-action-state-bindings (get-async-action-state ~key ~state ~action)
+            ~async-action-state-bindings ~async-action-state
             ~action-bindings (action/remove-action-keys ~action)]
 
         ~@body)))
@@ -193,21 +201,24 @@
 
         (fn [state#]
 
-          (let [async-action-data-promise# (async-action-bindings
+          (let [async-action-state# (get-async-action-state ~key state# action#)
+                async-action-data-promise# (async-action-bindings
                                             ~key
                                             ~bindings
                                             state#
+                                            async-action-state#
                                             action#
                                             ~async-action-data-promise)
 
-                ;; the effects-fn can use the same bindings as the
-                ;; action-data-promise, but will be invoked later in
+                ;; the effects-fn will use the same bindings as the
+                ;; async-action-data-promise, but will be invoked later in
                 ;; reaction to the promise completing
-                effects-fn# (fn [reaction-state#]
+                effects-fn# (fn [curr-state# new-async-action-state#]
                                (async-action-bindings
                                 ~key
                                 ~bindings
-                                reaction-state#
+                                curr-state#
+                                new-async-action-state#
                                 action#
                                 ~effects-map))]
 
