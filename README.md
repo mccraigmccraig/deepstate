@@ -48,12 +48,14 @@ There are a few core concepts:
 
 ## A simple example
 
-A quite simple example, showing a synchronous action and an asynchronous action.
+A quite simple example, showing a synchronous state-only action and an
+asynchronous action.
 Clicks will result in consistent data however they are interleaved:
 
 ``` clojure
 (a/def-state-action ::inc-counter
   [state _action]
+
   (update state ::counter inc))
 
 (a.a/def-async-action ::inc-delay
@@ -61,7 +63,12 @@ Clicks will result in consistent data however they are interleaved:
    {data ::a/data
     :as _async-action-state}
    _action]
+
+  ;; a promise of the action data
   (promesa.core/delay 2000 5)
+
+  ;; effects which can use the destructured action data
+  or other state
   {::a/state (update state ::counter + data)})
 
 (def action-ctx (a/create-action-context))
@@ -76,15 +83,19 @@ Clicks will result in consistent data however they are interleaved:
 ```
 
 Another example showing how the result of an async action can be destructured
-to create effects:
+to conditionally create effects:
 
 ``` clojure
 (a.ax/def-axios-action ::fetch-apod
-  [state 
+  [state
    {status ::a/status
     :as async-action-state}
    action]
+   
+  ;; a promise of the action data
   (axios/get "https://api.nasa.gov/planetary/apod\?api_key\=DEMO_KEY")
+  
+  ;; only create a navigate effect when successful
   (when (= ::a/success status)
     {::a/navigate "/show-pic"}))
 
@@ -110,12 +121,12 @@ element.
 
 Components then consume and update state through the `a/use-action` hook, which
 returns `[state dispatch]` - a state value and a dispatch fn. The
-`dispatch` fn is called with an `action` map, which will be handled to 
+`dispatch` fn is called with an `action` map, which will be handled to
 generate effects.
 
 ## Actions
 
-Actions are maps which describe an operation to change state (or perform 
+Actions are maps which describe an operation to change state (or perform
 some other effect). They have
 an `::a/action` key which selects a handler, and may have any other keys
 the particular handler requires.
@@ -137,6 +148,16 @@ It is possible to define an action handler directly, with
 `(defmethod a/handle <key> [action] (fn [state] ...))`, but it's
 easier to use one of the sugar macros, which allow for some
 destructuring:
+
+## `action-effects`
+
+There are currently 4 effects available:
+
+* `::a/state` - a new state value
+* `::a/navigate` - a url to navigate to
+* `::a/dispatch` - an `action-map` | [`action-map`] to be dispatched
+* `::a/later` - a promise of a fn `(fn [state] ...)` -> `action-effects`
+      to provide more effects later
 
 ## [[deepstate.action/def-action]]
 
@@ -171,7 +192,7 @@ to the updated state (i.e. not an `action-effects` map)
 ## [[deepstate.action.async/def-async-action]]
 
 Defines a promise-based async action handler. The action is specified as
-a form returning a promise of the result. The global `state`, the 
+a form returning a promise of the result. The global `state`, the
 `async-action-state` and the `action` map are all available for
 destructuring
 
@@ -188,7 +209,7 @@ destructuring
     {::a/navigate (str "/item/" id)}))
 ```
 
-This `def-async-action` will assoc an `async-action-state` map in the 
+This `def-async-action` will assoc an `async-action-state` map in the
 global `state` at path `[::run-query]`, with the shape
 
 ``` clojure
@@ -199,7 +220,7 @@ global `state` at path `[::run-query]`, with the shape
 
 ## [[deepstate.action.axios/def-axios-action]]
 
-Exactly like [[deepstate.action.async/def-async-action]], but the 
+Exactly like [[deepstate.action.async/def-async-action]], but the
 `action-data-promise` is expected to be an axios promise, and the response
 or error will be parsed into the `async-action-state`
 
