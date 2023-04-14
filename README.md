@@ -227,6 +227,14 @@ Exactly like [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/d
 but the `action-data-promise` is expected to be an [axios](https://axios-http.com/)
 promise, and the responseor error will be parsed into the `async-action-state`
 
+# example
+
+See the [example](https://github.com/mccraigmccraig/deepstate/tree/trunk/example)
+folder in the git repo. It's a modified
+[lilactown/helix-todo-mvc](https://github.com/lilactown/helix-todo-mvc) with
+the state management converted to deepstate and the `::add` action being
+made async with a random delay added
+
 # license
 
 Copyright © 2023 mccraigmccraig of the clan mccraig
