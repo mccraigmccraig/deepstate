@@ -214,6 +214,8 @@
      ([ctx path]
       (let [{state ::state
              :as ctx-val} (react/useContext ctx)]
+        (when (nil? ctx-val)
+          (throw (ex-info "nil action-context value" {})))
         [(get-in state path)
          (partial internal-dispatch ctx-val)]))))
 
