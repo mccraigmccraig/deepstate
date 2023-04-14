@@ -21,10 +21,18 @@
 (defn all-complete? [todos]
   (every? :completed? todos))
 
+;; a last-request-wins async action ... results
+;; from requests issued before the last (active)
+;; request will be discarded
 (a.a/def-async-action ::add
-  [state
+  [{{p-id ::a/id
+     :as _persisted-async-action-state} ::add
+    :as state}
+
    {new-todo ::a/data
+    n-id ::a/id
     :as _async-action-state}
+
    {title ::title
     :as _action}]
 
@@ -33,7 +41,12 @@
            (todo (random-uuid) title))
 
   ;; on completion add the new todo
-  {::a/state (update state ::todos conj new-todo)})
+  (if (not= p-id n-id)
+    (do
+      (js/console.warn "out of order" (pr-str p-id) (pr-str n-id))
+      {::a/fix-state state})
+
+    {::a/state (update state ::todos conj new-todo)}))
 
 (a/def-state-action ::remove
   [{todos ::todos
