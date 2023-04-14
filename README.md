@@ -18,8 +18,8 @@ but are simple, flexible, and straightforward to use in an async world.
 
 ``` clojure
 (require '[deepstate.action :as a])
-(require '[deepstate.action.async :as a.async])
-(require '[deepstate.action.async :as a.axios]')
+(require '[deepstate.action.async :as a.a])
+(require '[deepstate.action.axios :as a.ax]')
 ```
 
 ## Model and state
@@ -56,7 +56,7 @@ Clicks will result in consistent data however they are interleaved:
   [state _action]
   (update state ::counter inc))
 
-(a/def-async-action ::inc-delay
+(a.a/def-async-action ::inc-delay
   [state
    {data ::a/data
     :as _async-action-state}
@@ -79,7 +79,7 @@ Another example showing how the result of an async action can be destructured
 to create effects:
 
 ``` clojure
-(a/def-axios-action ::fetch-apod
+(a.ax/def-axios-action ::fetch-apod
   [state 
    {status ::a/status
     :as async-action-state}
@@ -176,7 +176,7 @@ a form returning a promise of the result. The global `state`, the
 destructuring
 
 ``` clojure
-(a.async/def-async-action ::run-query
+(a.a/def-async-action ::run-query
    [__state
     {status ::a/status
      {id :id} ::a/data
