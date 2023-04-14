@@ -88,7 +88,7 @@
      (get-in state (get-action-path key action))))
 
 #?(:cljs
-   (defn async-action
+   (defn async-action-handler
      "a promise-based async action handler providing a consistent
       format for handling and recording emerging `async-action-state`, and
       for interacting with navigation
@@ -238,4 +238,4 @@
         ~bindings
         ~async-action-data-promise
         ~reaction-map
-        async-action)))
+        async-action-handler)))

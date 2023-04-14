@@ -58,7 +58,7 @@
           (parse-axios-success-response succ))))))
 
 #?(:cljs
-   (defn axios-action
+   (defn axios-action-handler
      "function to perform an axios-action - an async-action with
       response parsing. invoked from expansions of the `def-axios-action` macro"
      [key
@@ -69,7 +69,7 @@
 
      (let [async-action-data-promise (handle-axios-response axios-promise)]
 
-       (action.async/async-action
+       (action.async/async-action-handler
         key
         state
         action
@@ -94,4 +94,4 @@
         ~bindings
         ~axios-promise
         ~reaction-map
-        axios-action)))
+        axios-action-handler)))
