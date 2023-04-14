@@ -221,7 +221,7 @@ global `state` at path `[::run-query]`, with the shape
  ::a/error ...}
 ```
 
-## [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.axios#def-axios-action)
+## [def-axios-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.axios#def-axios-action)
 
 Exactly like [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.async#def-async-action),
 but the `action-data-promise` is expected to be an [axios](https://axios-http.com/)
