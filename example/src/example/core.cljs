@@ -1,124 +1,169 @@
 (ns example.core
   (:require
+   [clojure.string :as string]
+   [applied-science.js-interop :as j]
    [helix.core :as hx :refer [$ <>]]
    [helix.dom :as d]
    [promesa.core :as p]
    [deepstate.action :as a]
-   [deepstate.action.axios :as axios.a]
+   [deepstate.action.async :as a.a]
    [deepstate.navigate.react-router]
-   ["react-dom/client" :as rdom]
-   ["react-router-dom" :as rr]
-   ["axios$default" :as axios]
-   [applied-science.js-interop :as j]
-   [lambdaisland.uri :as uri]
+   [example.components :as c]
    [example.lib :refer [defnc]]
-   [example.components :as c]))
+   ["react-dom/client" :as rdom]
+   ["react-router-dom" :as rr]))
 
-(defn ->form-data
-  [ev]
-  (some-> ev
-          (j/get :target)
-          (js/FormData.)
-          (j/call :entries)
-          (js/Object.fromEntries)
-          (js->clj :keywordize-keys true)))
+(defn todo [id title]
+  {:id id
+   :title title
+   :completed? false})
 
-(def action-context (a/create-action-context))
+(defn all-complete? [todos]
+  (every? :completed? todos))
 
-(a/def-action ::change-query
-  [{q :q
+(a.a/def-async-action ::add
+  [state
+   {new-todo ::a/data
+    :as _async-action-state}
+   {title ::title
     :as _action}]
-  (fn [state]
-    (assoc state ::query q)))
 
-(a/def-action ::clear-query
-  [_action]
-  (fn [state] (assoc state ::query "")))
+  ;; fake a random network delay
+  (p/delay (+ 1000 (rand-int 5000))
+           (todo (random-uuid) title))
 
-(def search-url-base
-  "http://localhost:8889/")
+  ;; on completion add the new todo
+  {::a/state (update state ::todos conj new-todo)})
 
-(defn search-url
-  [action]
-  (assoc
-   (uri/uri search-url-base)
-   :query
-   (uri/map->query-string action)))
+(a/def-state-action ::remove
+  [{todos ::todos
+    :as state}
+   {id ::id
+    :as _action}]
+  (assoc state ::todos (into [] (remove #(= (:id %) id)) todos)))
 
-(defn search-query
-  [{:as action}]
-  (let [url (search-url action)]
-    (-> url
-        (axios/get)
-        (p/then #(js->clj % :keywordize-keys true)))))
+(a/def-state-action ::toggle
+  [{todos ::todos
+    :as state}
+   {id ::id
+    :as _action}]
+  (assoc state ::todos (into []
+                             (map #(if (= (:id %) id)
+                                     (update % :completed? not)
+                                     %))
+                             todos)))
 
-(axios.a/def-axios-action ::search
-  [{:as action}]
-  {::a/axios
-   (search-query action)})
+(a/def-state-action ::update-title
+  [{todos ::todos
+    :as state}
+   {id ::id
+    title ::title
+    :as _action}]
+  (assoc state ::todos (into []
+                             (map
+                              #(if (= (:id %) id)
+                                 (assoc % :title (string/trim title))
+                                 %))
+                             todos)))
+
+(a/def-state-action ::toggle-all
+  [{todos ::todos
+    :as state}
+   {:as _action}]
+  (let [all-complete? (all-complete? todos)]
+    (assoc state ::todos (into []
+                               (map #(assoc % :completed? (not all-complete?)))
+                               todos))))
+
+(a/def-state-action ::clear-completed
+  [{todos ::todos
+    :as state}
+   {:as _action}]
+  (assoc state ::todos (filterv (comp not :completed?) todos)))
+
+(def action-ctx (a/create-action-context))
 
 (defnc Layout
   []
-  (d/section
-   {:class "container"}
-   (d/section
-    {:class "mt-5 mb-5 text-center"}
-    (d/h1 "Deepstate Example")
-    (d/div "Search"))
+  (let [[todos dispatch] (a/use-action action-ctx [::todos])
 
-   (d/section
-    {:class "ps-5 pe-5"}
-    ($ rr/Outlet))
+        active-todos (filter (comp not :completed?) todos)
 
-   (d/section
-    {:class "mt-5 mb-5 text-center"}
-    (d/a
-     {:href "https://github.com/mccraigmccraig/deepstate"}
-     "GitHub"))))
+        add-todo #(dispatch {::a/action ::add ::title (string/trim %)})
+        toggle-all #(dispatch ::toggle-all)
+        clear-completed #(dispatch ::clear-completed)]
+    (d/div
+     (d/section
+      {:class "todoapp"}
+      (d/header
+       {:class "header"}
+       (c/title)
+       (c/new-todo {:on-complete add-todo}))
+      (when (< 0 (count todos))
+        (<>
+         (d/section
+          {:class "main"}
+          (d/input {:id "toggle-all" :class "toggle-all" :type "checkbox"
+                    :checked (all-complete? todos) :on-change toggle-all})
+          (d/label {:for "toggle-all"} "Mark all as complete")
+          (d/ul
+           {:class "todo-list"}
+           ($ rr/Outlet)
+           ))
+         (d/footer
+          {:class "footer"}
+          (d/span
+           {:class "todo-count"}
+           (d/strong (count active-todos))
+           " items left")
+          (d/ul
+           {:class "filters"}
+           (d/li ($ rr/NavLink {:to "/" :className (j/fn [^:js {isActive :isActive}] (when isActive "selected"))} "All"))
+           (d/li ($ rr/NavLink {:to "/active" :className (j/fn [^:js {isActive :isActive}] (when isActive "selected"))} "Active"))
+           (d/li ($ rr/NavLink {:to "/completed" :className (j/fn [^:js {isActive :isActive}] (when isActive "selected"))} "Completed")))
+          (d/button {:class "clear-completed"
+                     :on-click clear-completed} "Clear completed")))))
+     (c/app-footer))))
 
-(defnc Home
+(defn make-todo-list
+  [dispatch]
+  (let [remove-todo #(dispatch {::a/action ::remove ::id %})
+        toggle-todo #(dispatch {::a/action ::toggle ::id %})
+        update-todo-title (fn [id title]
+                            (dispatch {::a/action ::update-title
+                                       ::id id ::title title}))
+
+        todo-list (fn [visible-todos]
+                    (for [{:keys [id] :as todo} visible-todos]
+                      (c/todo-item {:key id
+                                    :on-toggle toggle-todo
+                                    :on-destroy remove-todo
+                                    :on-update-title update-todo-title
+                                    :& todo})))]
+    todo-list))
+
+(defnc Active
   []
-  (let [a (a/use-action action-context)
-        q (a/use-action-state action-context [::query])
-        {search-status ::a/status
-         :as r} (a/use-action-state action-context [::search])]
+  (let [[todos dispatch] (a/use-action action-ctx [::todos])
+        active-todos (filter (comp not :completed?) todos)
+        todo-list (make-todo-list dispatch)]
 
-    (js/console.info "Home" (pr-str r))
+    (todo-list active-todos)))
 
-    (<>
+(defnc Completed
+  []
+  (let [[todos dispatch] (a/use-action action-ctx [::todos])
+        completed-todos (filter :completed? todos)
+        todo-list (make-todo-list dispatch)]
 
-     (d/form
-      {:on-submit
-       (fn [ev]
-         (.preventDefault ev)
-         (let [form-data (->form-data ev)]
-           (a/dispatch
-            a
-            (merge
-             form-data
-             {::a/action ::search}))))}
+    (todo-list completed-todos)))
 
-      (c/input
-       {:name :query
-        :input-type "text"
-        :label-text "Query"
-        :help-text (str "Enter some text")
-        :value (or q "")
-        :on-change (fn [ev]
-                     (a/dispatch
-                      a
-                      {::a/action ::change-query
-                       :q (j/get-in ev [:target :value])}))
-        :on-clear (fn [_ev] (a/dispatch a ::clear-query))})
+(defnc Default
+  []
+  (let [[todos dispatch] (a/use-action action-ctx [::todos])
+        todo-list (make-todo-list dispatch)]
 
-      (c/submit-button
-       "Search"))
-
-     (condp = search-status
-       ::a/inflight (d/div "in-flight")
-       ::a/success (d/div "OK")
-       ::a/error (d/div "error")
-       (d/div "NONE")))))
+    (todo-list todos)))
 
 (defn create-browser-router
   []
@@ -126,19 +171,24 @@
    (clj->js
 
     [{:element (a/action-context-provider
-                {:context action-context
-                 :initial-arg {}
+                {:context action-ctx
+                 :initial-arg {::todos []}
                  :children [($ Layout)]})
 
       :children
       [{:path "/"
-        :element ($ Home)}]}])))
+        :element ($ Default)}
+
+       {:path "active"
+        :element ($ Active)}
+
+       {:path "completed"
+        :element ($ Completed)}]}])))
 
 (def router (create-browser-router))
 
 (defnc App
   []
-
   ($ rr/RouterProvider
      {:router router}))
 
