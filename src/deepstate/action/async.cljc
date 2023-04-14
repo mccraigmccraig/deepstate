@@ -148,7 +148,7 @@
       both [[def-async-action]] and [[deepstate.action.axios/def-axios-action]]
       defer to this macro to establish bindings"
      [key
-      [state-bindings async-action-state-bindings action-bindings]
+      [state-bindings action-bindings]
       handler-promise-or-async-handler-map
       handler-fn]
 
@@ -159,8 +159,7 @@
 
           (fn [state#]
 
-            (let [~state-bindings state#
-                  ~async-action-state-bindings (get-async-action-state ~key state# action#)]
+            (let [~state-bindings state#]
 
               (~handler-fn
                ~key
@@ -185,14 +184,13 @@
                the `async-action-state`
        - `state-bindings` : fn bindings to destructure the global `state` map
        - `async-action-state-bindings` : fn bindings to destructure the `async-action-state` map
-       - `action-bindings` : fn bindings to destructure the `action` map
        - `handler-promise-or-async-handler-map` : form returning a promise of
           the `<action-data>` or a map with shape:
           {`::a/async` `Promise<action-data>`
            `::a/navigate`[-*] `<url>`  }
           may refer to any of the destructured bindings"
      [key
-      [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
+      [_state-bindings _action-bindings :as bindings]
       handler-promise-or-async-handler-map]
 
      `(def-async-action-bindings

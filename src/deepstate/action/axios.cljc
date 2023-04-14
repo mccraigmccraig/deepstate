@@ -91,7 +91,7 @@
       use the `::action/axios` key of the `axios-promise-or-axios-handler-map`
       to provide the form returning the axios promise"
      [key
-      [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
+      [_state-bindings _action-bindings :as bindings]
       axios-promise-or-axios-handler-map]
 
      `(action.async/def-async-action-bindings
