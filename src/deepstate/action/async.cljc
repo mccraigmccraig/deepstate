@@ -13,40 +13,57 @@
       [deepstate.action.async])))
 
 #?(:cljs
-   (defn ^:private choose-async-navigate-url
-     [{navigate-url ::action/navigate
-       inflight-navigate-url ::action/navigate-inflight
-       success-navigate-url ::action/navigate-success
-       error-navigate-url ::action/navigate-error
-       :as effs-map}
-      action-path
-      state]
+   (defn ^:no-doc navigate-on-condition
+     "reaction helper - navigate when (pred <action-status>) is true"
+     ([async-action-state url pred]
+      (navigate-on-condition {} async-action-state url pred))
 
-     (let [{action-status ::action/status
-            :as _async-action-state} (get-in state action-path)
+     ([effs
+       {status ::action/status
+        :as _async-action-state}
+       url
+       pred]
 
-           nav-url (cond
-                     (some? navigate-url) navigate-url
+      (if (pred status)
+        (assoc effs ::action/navigate url)
+        effs))))
 
-                     (and (= ::action/inflight action-status)
-                          (some? inflight-navigate-url))
-                     inflight-navigate-url
+#?(:cljs
+   (defn navigate-on-success
+     "reaction helper - navigate only on success"
+     ([async-action-state url]
+      (navigate-on-success {} async-action-state url))
 
-                     (and (= ::action/success action-status)
-                          (some? success-navigate-url))
-                     success-navigate-url
+     ([effs async-action-state url]
+      (navigate-on-condition effs async-action-state url #(= ::action/success %)))))
 
-                     (and (= ::action/error action-status)
-                          (some? error-navigate-url))
-                     error-navigate-url)]
+#?(:cljs
+   (defn navigate-on-error
+     "reaction helper - navigate only on error"
+     ([async-action-state url]
+      (navigate-on-error {} async-action-state url))
 
-       (cond-> (dissoc
-                effs-map
-                ::action/navigate ::action/navigate-inflight
-                ::action/navigate-success ::action/navigate-error)
+     ([effs async-action-state url]
+      (navigate-on-condition effs async-action-state url #(= ::action/error %)))))
 
-         (some? nav-url)
-         (assoc ::action/navigate nav-url)))))
+#?(:cljs
+   (defn navigate-on-inflight
+     "reaction helper - navigate only when inflight"
+     ([async-action-state url]
+      (navigate-on-inflight {} async-action-state url))
+
+     ([effs async-action-state url]
+      (navigate-on-condition effs async-action-state url #(= ::action/inflight %)))))
+
+#?(:cljs
+   (defn navigate-always
+     "reaction helper - always navigate"
+     ([async-action-state url]
+      (navigate-always {} async-action-state url))
+
+     ([effs async-action-state url]
+      (navigate-on-condition effs async-action-state url (constantly true)))))
+
 
 #?(:cljs
    (defn ^:private get-action-path
@@ -82,24 +99,16 @@
       - `action` : the action value being handled
         - `::action/path` - instead of updating the `state` at `key`,
                             update the `state` at `path`
-      - `handler-promise-or-async-handler-map` : a promise of a result,
-           or a map {`::action/async` `Promise<action-result>`
-                     `::action/navigate`[-*] `<url>`}
+      - `async-action-data-promise` : a promise of the action data
+      - `reactino-fn` : a (fn <state>) to be called when the promise completes,
+          returning an effects map
 
       `async-action-state` will be updated at `::action-path` with a map
        with these keys:
         `::action/status` - ::inflight, ::success or ::error
         `::action/action` - the action value
         `::action/data` - the happy-path result of the action
-        `::action/error` - any error value
-
-       if an `::action/navigate` url is supplied then it will be used to
-       navigate each time the action is handled (including
-       `::action/inflight`)
-
-       `::action/navigate-inflight`, `::action/navigate-success` and
-       `::action/navigate-error` keys are also available to navigate
-       only on particular conditions"
+        `::action/error` - any error value"
      [key
       state
       action
@@ -121,34 +130,36 @@
          async-action-data-promise
          (fn [r e]
            (fn [state]
-             (let [new-state
-                   (if (some? e)
-                     (update-in state ap
-                                merge {::action/status ::action/error
-                                       ::action/error e})
-
-                     (update-in state ap
-                                merge {::action/status ::action/success
-                                       ::action/data r
-                                       ::action/error nil}))
+             (let [new-state (update-in
+                              state
+                              ap
+                              merge
+                              (if (some? e)
+                                {::action/status ::action/error
+                                 ::action/error e}
+                                {::action/status ::action/success
+                                 ::action/data r
+                                 ::action/error nil}))
 
                    effs (reaction-fn new-state)]
 
-               (-> effs
-                   (choose-async-navigate-url ap new-state)
-                   (merge {::action/state new-state}))))))})))
+                ;; allow the reaction definition full control of
+               ;; state changes
+               (merge
+                {::action/state new-state}
+                effs)))))})))
 
 #?(:clj
    (defmacro async-action-bindings
      "set up bindings for an async action definition"
      [key
-      [state-bindings action-state-bindings action-bindings]
+      [state-bindings async-action-state-bindings action-bindings]
       state
       action
       & body]
 
      `(let [~state-bindings ~state
-            ~action-state-bindings (get-async-action-state ~key ~state ~action)
+            ~async-action-state-bindings (get-async-action-state ~key ~state ~action)
             ~action-bindings (action/remove-action-keys ~action)]
 
         ~@body)))
@@ -159,7 +170,7 @@
       both [[def-async-action]] and [[deepstate.action.axios/def-axios-action]]
       defer to this macro to establish bindings"
      [key
-      [_state-bindings _action-state-bindings _action-bindings :as bindings]
+      [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
       async-action-data-promise
       reaction-map
       handler-fn]
@@ -211,13 +222,14 @@
                the `async-action-state`
        - `state-bindings` : fn bindings to destructure the global `state` map
        - `async-action-state-bindings` : fn bindings to destructure the `async-action-state` map
-       - `handler-promise-or-async-handler-map` : form returning a promise of
-          the `<action-data>` or a map with shape:
-          {`::a/async` `Promise<action-data>`
-           `::a/navigate`[-*] `<url>`  }
-          may refer to any of the destructured bindings"
+       - `action-bindings` : fn bindings to destructure the `action` map
+       - `async-action-data-promise` : form returning a promise of the
+          `<action-data>` - may use any established bindings
+       - `reaction-map` : form which will be evaluated when promise completes
+           returning effects including `::action/state`, `::action/dispatch` and
+           `::action/navigate`"
      [key
-      [_state-bindings _action-state-bindings _action-bindings :as bindings]
+      [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
       async-action-data-promise
       reaction-map]
 
