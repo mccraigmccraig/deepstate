@@ -100,8 +100,8 @@
         - `::action/path` - instead of updating the `state` at `key`,
                             update the `state` at `path`
       - `async-action-data-promise` : a promise of the action data
-      - `reactino-fn` : a (fn <state>) to be called when the promise completes,
-          returning an effects map
+      - `effects-fn` : a (fn <state>) wrapping the `effects-map` form,
+         to be called when the promise completes, returns an effects map
 
       `async-action-state` will be updated at `::action-path` with a map
        with these keys:
@@ -115,7 +115,7 @@
       state
       action
       async-action-data-promise
-      reaction-fn]
+      effects-fn]
 
      (let [ap (get-action-path key action)
 
@@ -143,7 +143,7 @@
                                  ::action/data r
                                  ::action/error nil}))
 
-                   effs (reaction-fn new-state)]
+                   effs (effects-fn new-state)]
 
                 ;; allow the reaction definition full control of
                ;; state changes
@@ -200,10 +200,10 @@
                                             action#
                                             ~async-action-data-promise)
 
-                ;; the reaction-fn can use the same bindings as the
+                ;; the effects-fn can use the same bindings as the
                 ;; action-data-promise, but will be invoked later in
                 ;; reaction to the promise completing
-                reaction-fn# (fn [reaction-state#]
+                effects-fn# (fn [reaction-state#]
                                (async-action-bindings
                                 ~key
                                 ~bindings
@@ -216,7 +216,7 @@
              state#
              action#
              async-action-data-promise#
-             reaction-fn#))))))
+             effects-fn#))))))
 
 #?(:clj
    (defmacro def-async-action
@@ -227,10 +227,12 @@
       `state` map, and updated after the action has completed.
       `async-action-state` will have shape:
 
+      ```Clojure
         {`::action/status` `::inflight|::success|::error`
          `::action/action` `<action-map>`
          `::action/data` `<async-action-data>`
          `::action/error` `<action-error>`}
+      ```
 
        - `key` : the action key and the default path in the `state` for
                the `async-action-state`
