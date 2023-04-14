@@ -64,23 +64,17 @@
      [key
       state
       action
-      axios-promise-or-axios-handler-map]
+      axios-promise
+      reaction-fn]
 
-     (let [{axios-action ::action/axios
-            :as axios-action-map} (if (map? axios-promise-or-axios-handler-map)
-                                    axios-promise-or-axios-handler-map
-                                    {::action/axios axios-promise-or-axios-handler-map})
-
-           axios-action-map (-> axios-action-map
-                                (dissoc ::action/axios)
-                                (assoc ::action/async
-                                       (handle-axios-response axios-action)))]
+     (let [async-action-data-promise (handle-axios-response axios-promise)]
 
        (action.async/async-action
         key
         state
         action
-        axios-action-map))))
+        async-action-data-promise
+        reaction-fn))))
 
 #?(:clj
    (defmacro def-axios-action
@@ -92,10 +86,12 @@
       to provide the form returning the axios promise"
      [key
       [_state-bindings _action-bindings :as bindings]
-      axios-promise-or-axios-handler-map]
+      axios-promise
+      reaction-map]
 
      `(action.async/def-async-action-handler
         ~key
         ~bindings
-        ~axios-promise-or-axios-handler-map
+        ~axios-promise
+        ~reaction-map
         axios-action)))

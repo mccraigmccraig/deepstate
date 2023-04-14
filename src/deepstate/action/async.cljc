@@ -13,31 +13,40 @@
       [deepstate.action.async])))
 
 #?(:cljs
-   (defn ^:private async-navigate-url
+   (defn ^:private choose-async-navigate-url
      [{navigate-url ::action/navigate
        inflight-navigate-url ::action/navigate-inflight
        success-navigate-url ::action/navigate-success
        error-navigate-url ::action/navigate-error
-       :as _action-map}
+       :as effs-map}
       action-path
       state]
 
      (let [{action-status ::action/status
-            :as _async-action-state} (get-in state action-path)]
-       (cond
-         (some? navigate-url) navigate-url
+            :as _async-action-state} (get-in state action-path)
 
-         (and (= ::action/inflight action-status)
-              (some? inflight-navigate-url))
-         inflight-navigate-url
+           nav-url (cond
+                     (some? navigate-url) navigate-url
 
-         (and (= ::action/success action-status)
-              (some? success-navigate-url))
-         success-navigate-url
+                     (and (= ::action/inflight action-status)
+                          (some? inflight-navigate-url))
+                     inflight-navigate-url
 
-         (and (= ::action/error action-status)
-              (some? error-navigate-url))
-         error-navigate-url))))
+                     (and (= ::action/success action-status)
+                          (some? success-navigate-url))
+                     success-navigate-url
+
+                     (and (= ::action/error action-status)
+                          (some? error-navigate-url))
+                     error-navigate-url)]
+
+       (cond-> (dissoc
+                effs-map
+                ::action/navigate ::action/navigate-inflight
+                ::action/navigate-success ::action/navigate-error)
+
+         (some? nav-url)
+         (assoc ::action/navigate nav-url)))))
 
 #?(:cljs
    (defn ^:private get-action-path
@@ -94,62 +103,52 @@
      [key
       state
       action
-      handler-promise-or-async-handler-map]
+      async-action-data-promise
+      reaction-fn]
 
-     (let [{action-promise ::action/async
-            :as action-map} (if (map? handler-promise-or-async-handler-map)
-                              handler-promise-or-async-handler-map
-                              {::action/async handler-promise-or-async-handler-map})
+     (let [ap (get-action-path key action)
 
-           ap (get-action-path key action)]
+           init-state (update-in state ap
+                                 merge {::action/status ::action/inflight
+                                        ::action/action action})]
 
        ;; (js/console.info "async-action" (pr-str action-map))
 
-       (let [new-state (update-in state ap
-                                  merge {::action/status ::action/inflight
-                                         ::action/action action})
-             navigate-url (async-navigate-url action-map ap new-state)]
-         (cond->
+       {::action/state init-state
 
-             {::action/state new-state
+        ::action/later
+        (p/handle
+         async-action-data-promise
+         (fn [r e]
+           (fn [state]
+             (let [new-state
+                   (if (some? e)
+                     (update-in state ap
+                                merge {::action/status ::action/error
+                                       ::action/error e})
 
-              ::action/later
-              (p/handle
-               action-promise
-               (fn [r e]
-                 (fn [state]
-                   (let [new-state
-                         (if (some? e)
-                           (update-in state ap
-                                      merge {::action/status ::action/error
-                                             ::action/error e})
+                     (update-in state ap
+                                merge {::action/status ::action/success
+                                       ::action/data r
+                                       ::action/error nil}))
 
-                           (update-in state ap
-                                      merge {::action/status ::action/success
-                                             ::action/data r
-                                             ::action/error nil}))
+                   effs (reaction-fn new-state)]
 
-                         navigate-url (async-navigate-url
-                                       action-map
-                                       ap
-                                       new-state)]
-                     (cond->
-                         {::action/state new-state}
-
-                       (some? navigate-url)
-                       (assoc ::action/navigate navigate-url))))))}
-
-           (some? navigate-url)
-           (assoc ::action/navigate navigate-url))))))
+               (-> effs
+                   (choose-async-navigate-url ap new-state)
+                   (merge {::action/state new-state}))))))})))
 
 #?(:clj
    (defmacro async-action-bindings
-     [[state-bindings action-bindings]
+     "set up bindings for an async action definition"
+     [key
+      [state-bindings action-state-bindings action-bindings]
       state
       action
       & body]
 
      `(let [~state-bindings ~state
+            ~action-state-bindings (get-async-action-state ~key ~state ~action)
             ~action-bindings (action/remove-action-keys ~action)]
 
         ~@body)))
@@ -160,8 +159,9 @@
       both [[def-async-action]] and [[deepstate.action.axios/def-axios-action]]
       defer to this macro to establish bindings"
      [key
-      [_state-bindings _action-bindings :as bindings]
-      handler-promise-or-async-handler-map
+      [_state-bindings _action-state-bindings _action-bindings :as bindings]
+      async-action-data-promise
+      reaction-map
       handler-fn]
 
      `(defmethod action/handle ~key
@@ -169,15 +169,30 @@
 
         (fn [state#]
 
-          (async-action-bindings
-             ~bindings
+          (let [async-action-data-promise# (async-action-bindings
+                                            ~key
+                                            ~bindings
+                                            state#
+                                            action#
+                                            ~async-action-data-promise)
+
+                ;; the reaction-fn can use the same bindings as the
+                ;; action-data-promise, but will be invoked later in
+                ;; reaction to the promise completing
+                reaction-fn# (fn [reaction-state#]
+                               (async-action-bindings
+                                ~key
+                                ~bindings
+                                reaction-state#
+                                action#
+                                ~reaction-map))]
+
+            (~handler-fn
+             ~key
              state#
              action#
-             (~handler-fn
-              ~key
-              state#
-              action#
-              ~handler-promise-or-async-handler-map))))))
+             async-action-data-promise#
+             reaction-fn#))))))
 
 #?(:clj
    (defmacro def-async-action
@@ -202,11 +217,13 @@
            `::a/navigate`[-*] `<url>`  }
           may refer to any of the destructured bindings"
      [key
-      [_state-bindings _action-bindings :as bindings]
-      handler-promise-or-async-handler-map]
+      [_state-bindings _action-state-bindings _action-bindings :as bindings]
+      async-action-data-promise
+      reaction-map]
 
      `(def-async-action-handler
         ~key
         ~bindings
-        ~handler-promise-or-async-handler-map
+        ~async-action-data-promise
+        ~reaction-map
         async-action)))
