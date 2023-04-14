@@ -80,18 +80,15 @@
    (defmacro def-axios-action
      "define an axios based async action - it's like an
       [[deepstate.action.async/def-async-action]] with parsing
-      of the axios responses to make things friendlier
-
-      use the `::action/axios` key of the `axios-promise-or-axios-handler-map`
-      to provide the form returning the axios promise"
+      of the result of `axios-promise` to make things friendlier"
      [key
       [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
       axios-promise
-      reaction-map]
+      effects-map]
 
      `(action.async/def-async-action-handler
         ~key
         ~bindings
         ~axios-promise
-        ~reaction-map
+        ~effects-map
         axios-action-handler)))

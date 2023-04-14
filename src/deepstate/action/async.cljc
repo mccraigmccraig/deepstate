@@ -96,7 +96,7 @@
       - `key` : the `::action/key` to match a `dispatch`. identifies the action,
            and is the default path of the `async-action-state` in `state`
       - `state` : the global state
-      - `action` : the action value being handled
+      - `action` : the action map value being handled
         - `::action/path` - instead of updating the `state` at `key`,
                             update the `state` at `path`
       - `async-action-data-promise` : a promise of the action data
@@ -105,10 +105,12 @@
 
       `async-action-state` will be updated at `::action-path` with a map
        with these keys:
-        `::action/status` - ::inflight, ::success or ::error
-        `::action/action` - the action value
-        `::action/data` - the happy-path result of the action
-        `::action/error` - any error value"
+       ```Clojure
+        `::action/status` - `::inflight` | `::success` | `::error`
+        `::action/action` - the `action` map
+        `::action/data` - the happy-path result of the `async-action-data-promise`
+        `::action/error` - any error result of the `async-action-data-promise`
+       ```"
      [key
       state
       action
@@ -151,7 +153,10 @@
 
 #?(:clj
    (defmacro async-action-bindings
-     "set up bindings for an async action definition"
+     "a macro which establishes bindings for async action definitions... both
+      the `action-data-promise` and the `effects-map` can use
+      these bindings to destructure the global `state`, the `async-action-state`
+      and the `action` map"
      [key
       [state-bindings async-action-state-bindings action-bindings]
       state
@@ -166,13 +171,21 @@
 
 #?(:clj
    (defmacro def-async-action-handler
-     "a macro to establish bindings used by other async-action macros.
-      both [[def-async-action]] and [[deepstate.action.axios/def-axios-action]]
-      defer to this macro to establish bindings"
+     "a macro which defines a handler for an async action, leaving
+      particular behaviour to the `handler-fn`.
+      [[def-async-action]] and [[deepstate.action.axios/def-axios-action]]
+      both defer to this macro
+      - `key` - the action key
+      - `bindings` - bindings for the global `state`, the `async-action-state` and
+          the `action` map
+      - `async-action-data-promise` - a promise of the data for the async action
+      - `effects-map` - a form to be evaluated after the
+         `async-action-data-promise` has completed
+      - `handler-fn` - the fn implementing specific async action behaviour"
      [key
       [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
       async-action-data-promise
-      reaction-map
+      effects-map
       handler-fn]
 
      `(defmethod action/handle ~key
@@ -196,7 +209,7 @@
                                 ~bindings
                                 reaction-state#
                                 action#
-                                ~reaction-map))]
+                                ~effects-map))]
 
             (~handler-fn
              ~key
@@ -207,7 +220,8 @@
 
 #?(:clj
    (defmacro def-async-action
-     "define an action handler to service a promise-based async action
+     "a macro which defines an action handler to service a promise-based async
+      action
 
       an `async-action-state` map will be initialised at a path in the global
       `state` map, and updated after the action has completed.
@@ -215,27 +229,29 @@
 
         {`::action/status` `::inflight|::success|::error`
          `::action/action` `<action-map>`
-         `::action/data` `<action-data>`
+         `::action/data` `<async-action-data>`
          `::action/error` `<action-error>`}
 
        - `key` : the action key and the default path in the `state` for
                the `async-action-state`
        - `state-bindings` : fn bindings to destructure the global `state` map
-       - `async-action-state-bindings` : fn bindings to destructure the `async-action-state` map
+       - `async-action-state-bindings` : fn bindings to destructure the
+            `async-action-state` map
        - `action-bindings` : fn bindings to destructure the `action` map
        - `async-action-data-promise` : form returning a promise of the
-          `<action-data>` - may use any established bindings
-       - `reaction-map` : form which will be evaluated when promise completes
-           returning effects including `::action/state`, `::action/dispatch` and
-           `::action/navigate`"
+          `<async-action-data>` - may use any established bindings
+       - `effects-map` : form which will be evaluated when the
+         `async-action-data-promise` completes and
+           returning `action-effects` including `::action/state`,
+          `::action/dispatch` and `::action/navigate`"
      [key
       [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
       async-action-data-promise
-      reaction-map]
+      effects-map]
 
      `(def-async-action-handler
         ~key
         ~bindings
         ~async-action-data-promise
-        ~reaction-map
+        ~effects-map
         async-action-handler)))

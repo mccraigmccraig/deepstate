@@ -19,26 +19,31 @@
      "handle a possibly asynchronous action
 
       macros such as
-      [[def-action]], [[def-state-action]] and
-      [[deepstate.action.async/def-async-action]] provide
-      sugar to create implementations of this multimethod
+      [[def-action]], [[def-state-action]],
+      [[deepstate.action.async/def-async-action]] and
+      [[deepstate.action.axios/def-axios-action]]  provide
+      sugar creating implementations of this multimethod
 
       - `action` : the `action` map. must have key `::action`
                  which identifies the handler multimethod
 
       returns:
-        `action-effects` = (f state) ->
-                            {::state <state'>
-                             ::navigate <url>
-                             ::dispatch <ActionMap>|[<ActionMap>]
-                             ::later Promise<ActionEffects>}
+      ```Clojure
+        `action-effects-fn` = (f state) -> `action-effects`
 
-      i.e. handle returns a fn of `state` which, when invoked,
+        `action-effects` = {::state <state>
+                            ::navigate <url>
+                            ::dispatch <action-map>|[<action-map>]
+                            ::later Promise<action-effects-fn>}
+      ```
+
+      i.e. `handle` returns a fn of `state` which, when invoked,
       returns a map of (all optional) effects, including
-        `::state` - updated state
-        `::navigate` - a url to navigate to
-        `::dispatch` - further ActionMaps to dispatch
-        `::later` - a Promise of another ActionEffects fn"
+      - `::state` - updated state
+      - `::navigate` - a url to navigate to
+      - `::dispatch` - further `action` maps to dispatch
+      - `::later` - a Promise of another `action-effects` fn"
+
      (fn [{action-key ::action
            :as _action}]
 
@@ -74,8 +79,9 @@
    (defn ^:private action-effects-reducer-action
      "return a reducer action which can be dispatched
       to the underlying react reducer
-      `action-context-val` - action context value
-      `action-effects-fn` - a (fn <state>) from (handle <ActionMap>)"
+
+      - `action-context-val` - action context value
+      - `action-effects-fn` - a (fn <state>) from (handle <ActionMap>)"
      [{react-dispatch ::react-dispatch
        set-navurl ::set-navurl
        :as action-context-val}
@@ -88,9 +94,9 @@
               later-eff ::later
               :as _effects} (action-effects-fn state)]
 
-         (js/console.debug
-          "action-effects-reducer-action"
-          (pr-str _effects))
+         ;; (js/console.debug
+         ;;  "action-effects-reducer-action"
+         ;;  (pr-str _effects))
 
          (when (some? navigate-eff)
            (set-navurl navigate-eff))
@@ -116,14 +122,14 @@
    (defn ^:no-doc internal-dispatch
      "dispatch an action to update the state
 
-      should not be called directly from components - a component
-      should use-action and call the dispatch fn returned, which
-      conveniently closes over the action-context-val
+      should generally not be called directly from components - a component
+      should [[use-action]] and call the `dispatch` fn returned, which
+      conveniently closes over the `action-context-val`
 
        - `action-context-val` : the value from an action-context
                           provided by `action-context-provider`
 
-       - `action` : an ActionMap. must have key `::action` which
+       - `action` : an action map. must have key `::action` which
                   identifies the handler multimethod. if the action
                   is just a keyword it will be treated as the
                   `::action` key"
@@ -203,7 +209,7 @@
       - `path` - optional path into state for returned state value
 
       returns:
-        [state dispatch]"
+        [`state` `dispatch`]"
      ([ctx] (use-action ctx nil))
      ([ctx path]
       (let [{state ::state
@@ -239,14 +245,15 @@
 #?(:clj
    (defmacro def-action
      "define a generic action handler
+
       - `key` : the action key
       - `state-bindings` : fn bindings to destructure the state
       - `action-bindings` : fn bindings to destructure the action
-      - `body` : any forms which return an action `handle` ActionEffects fn
-                 (i.e. a (fn <state>)). can use the `action-bindings`"
+      - `effects-map` : a form which evaluates to an `action-effects` map.
+        can use the `action-bindings`"
      [key
       [state-bindings action-bindings]
-      & body]
+      effects-map]
 
      `(defmethod handle ~key
         [action#]
@@ -255,24 +262,25 @@
 
           (fn [state#]
             (let [~state-bindings state#]
-              ~@body))))))
+              ~effects-map))))))
 
 #?(:clj
    (defmacro def-state-action
      "define an action handler with only state effects
+
       - `key` : the action key
       - `state-bindings` : fn bindings to destructure the state
       - `action-bindings` : fn bindings to destructure the action
-      - `body` : forms for a (fn <state>)->state .
-                 can use the `action-bindings`"
+      - `state-effect-map` : a form which evaluates to a state map.
+           can use the `action-bindings`"
      [key
       bindings
-      & body]
+      state-effect-map]
 
      `(def-action
         ~key
         ~bindings
-        {::state ~@body})))
+        {::state ~state-effect-map})))
 
 #?(:cljs
    (hx/defnc ActionContextProvider
