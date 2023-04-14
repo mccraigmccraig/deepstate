@@ -119,8 +119,12 @@
 
      (let [ap (get-action-path key action)
 
+           ;; an id allows the effect-fn to detect whether
+           ;; it's out of date
+           action-id (random-uuid)
            init-state (update-in state ap
-                                 merge {::action/status ::action/inflight
+                                 merge {::action/id action-id
+                                        ::action/status ::action/inflight
                                         ::action/action action})]
 
        ;; (js/console.info "async-action" (pr-str action-map))
@@ -133,9 +137,11 @@
          (fn [r e]
            (fn [state]
              (let [new-async-action-state (if (some? e)
-                                            {::action/status ::action/error
+                                            {::action/id action-id
+                                             ::action/status ::action/error
                                              ::action/error e}
-                                            {::action/status ::action/success
+                                            {::action/id action-id
+                                             ::action/status ::action/success
                                              ::action/data r
                                              ::action/error nil})
 
@@ -143,16 +149,19 @@
                    ;; async-action-state - so the effects calc can consider
                    ;; the previous state vs the update
                    {effs-state ::action/state
+                    fix-state ::action/fix-state
                     :as effs} (effects-fn state new-async-action-state)
 
-                   ;; the effects-fn can control the full state, apart from
-                   ;; the async-action-state which will always
-                   ;; be updated
-                   new-state (update-in
-                              (or effs-state state)
-                              ap
-                              merge
-                              new-async-action-state)]
+                   new-state (or
+                              ;; take the replace state unmodified
+                              fix-state
+
+                              ;; or update with the new async-action-state
+                              (update-in
+                               (or effs-state state)
+                               ap
+                               merge
+                               new-async-action-state))]
 
                (merge
                 effs
