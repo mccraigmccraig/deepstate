@@ -1,13 +1,9 @@
 {:lint-as
- {
-  example.lib/defnc clojure.core/defn
-  helix.core/defnc clojure.core/defn
+ {example.lib/defnc clojure.core/defn
+
+  applied-science.js-interop/fn clojure.core/fn
 
   deepstate.action/def-action clojure.core/defn
+  deepstate.action/def-state-action clojure.core/defn
   deepstate.action.async/def-async-action clojure.core/defn
-  deepstate.action.axios/def-axios-action clojure.core/defn
-
-  malli.experimental/defn schema.core/defn
-  promesa.core/let clojure.core/let
-  promesa.core/loop clojure.core/loop
-  promesa.core/recur clojure.core/recur}}
+  deepstate.action.axios/def-axios-action clojure.core/defn}}
