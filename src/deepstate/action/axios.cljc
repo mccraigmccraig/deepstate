@@ -94,7 +94,7 @@
       [_state-bindings _action-bindings :as bindings]
       axios-promise-or-axios-handler-map]
 
-     `(action.async/def-async-action-bindings
+     `(action.async/def-async-action-handler
         ~key
         ~bindings
         ~axios-promise-or-axios-handler-map

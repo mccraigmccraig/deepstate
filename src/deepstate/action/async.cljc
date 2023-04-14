@@ -143,29 +143,41 @@
            (assoc ::action/navigate navigate-url))))))
 
 #?(:clj
-   (defmacro def-async-action-bindings
+   (defmacro async-action-bindings
+     [[state-bindings action-bindings]
+      state
+      action
+      & body]
+
+     `(let [~state-bindings ~state
+            ~action-bindings (action/remove-action-keys ~action)]
+
+        ~@body)))
+
+#?(:clj
+   (defmacro def-async-action-handler
      "a macro to establish bindings used by other async-action macros.
       both [[def-async-action]] and [[deepstate.action.axios/def-axios-action]]
       defer to this macro to establish bindings"
      [key
-      [state-bindings action-bindings]
+      [_state-bindings _action-bindings :as bindings]
       handler-promise-or-async-handler-map
       handler-fn]
 
      `(defmethod action/handle ~key
         [action#]
 
-        (let [~action-bindings (action/remove-action-keys action#)]
+        (fn [state#]
 
-          (fn [state#]
-
-            (let [~state-bindings state#]
-
-              (~handler-fn
-               ~key
-               state#
-               action#
-               ~handler-promise-or-async-handler-map)))))))
+          (async-action-bindings
+             ~bindings
+             state#
+             action#
+             (~handler-fn
+              ~key
+              state#
+              action#
+              ~handler-promise-or-async-handler-map))))))
 
 #?(:clj
    (defmacro def-async-action
@@ -193,7 +205,7 @@
       [_state-bindings _action-bindings :as bindings]
       handler-promise-or-async-handler-map]
 
-     `(def-async-action-bindings
+     `(def-async-action-handler
         ~key
         ~bindings
         ~handler-promise-or-async-handler-map
