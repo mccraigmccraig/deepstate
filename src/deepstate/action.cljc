@@ -5,9 +5,8 @@
       [helix.hooks :as-alias hooks]))
   #?(:cljs
      (:require
-      ["react" :as react]
       [promesa.core :as p]
-      [helix.core :as hx]
+      [helix.core]
       [helix.hooks :as hooks]
       [deepstate.navigate :as nav]))
   #?(:cljs
@@ -170,69 +169,6 @@
 
 #?(:cljs
    #_{:clj-kondo/ignore [:unused-private-var]}
-   (defn ^:private make-action-context-val
-     "make the value passed around in an action-context ...
-      it encapsulates both the `state` and the
-      `dispatch` fn from a react `useState` hook"
-     [state react-dispatch set-navurl]
-     ;; (js/console.warn "make-action-context-val")
-     {::state state
-      ::react-dispatch react-dispatch
-      ::set-navurl set-navurl}))
-
-#?(:cljs
-   (defn create-action-context
-     "create the React `Context` object"
-     []
-     (react/createContext)))
-
-#?(:cljs
-   (defn use-action-context
-     "get the value from an `action-context`"
-     [ctx]
-     (react/useContext ctx)))
-
-#?(:cljs
-   (defn use-action-dispatch
-     "get a dispatch fn
-
-      - `ctx` - the action context"
-     [ctx]
-     (let [ctx-val (react/useContext ctx)]
-       (partial internal-dispatch ctx-val))))
-
-#?(:cljs
-   (defn use-action
-     "get a state value and dispatch fn
-
-      - `ctx` - the action context
-      - `path` - optional path into state for returned state value
-
-      returns:
-        [`state` `dispatch`]"
-     ([ctx] (use-action ctx nil))
-     ([ctx path]
-      (let [{state ::state
-             :as ctx-val} (react/useContext ctx)]
-        (when (nil? ctx-val)
-          (throw (ex-info "nil action-context value" {})))
-        [(get-in state path)
-         (partial internal-dispatch ctx-val)]))))
-
-#?(:cljs
-   (defn use-action-state
-     "extract the value at `path` (default `nil`) in the current `state`
-      from an `action-context`"
-     ([ctx]
-      (use-action-state ctx nil))
-
-     ([ctx path]
-      (let [{state ::state
-             :as _ctx-val} (react/useContext ctx)]
-        (get-in state path)))))
-
-#?(:cljs
-   #_{:clj-kondo/ignore [:unused-private-var]}
    (defn ^:private remove-action-keys
      "remove keys from the ::action namespace, leaving
       only the "
@@ -285,22 +221,38 @@
         {::state ~state-effect-map})))
 
 #?(:cljs
-   (hx/defnc ActionContextProvider
-     [{context :context
-       initial-arg :initial-arg
-       [child] :children}]
+   #_{:clj-kondo/ignore [:unused-private-var]}
+   (defn ^:private make-action-context-val
+     "make the value passed around in an action-context ...
+      it encapsulates both the `state` and the
+      `dispatch` fn from a react `useState` hook"
+     [state react-dispatch set-navurl]
+     ;; (js/console.warn "make-action-context-val")
+     {::state state
+      ::react-dispatch react-dispatch
+      ::set-navurl set-navurl}))
 
-     ;; since this is where state is stored
-     {:helix/features {:fast-refresh true}}
+#?(:cljs
+   (defn use-action
+     "get a `state` value and `dispatch` fn to interact with state
 
-     (let [[state react-dispatch] (hooks/use-reducer action-fn-reducer initial-arg)
+      - `initial-state` : initial value of `state`
+
+      returns:
+        [`state` `dispatch`]"
+     [initial-state]
+     (let [[state react-dispatch] (hooks/use-reducer action-fn-reducer initial-state)
 
            ;; navurl will receive an optional url to navigate to after
            ;; an action is handled
            [navurl set-navurl] (hooks/use-state nil)
+
            val (make-action-context-val state react-dispatch set-navurl)
 
-           navigate (nav/navigator)]
+           navigate (nav/navigator)
+
+           dispatch (partial internal-dispatch val)]
+
 
        ;; if navigate is called during a render then we get an
        ;; error from react - so collect the forward url in navurl
@@ -314,20 +266,18 @@
           (set-navurl nil)
           (navigate navurl)))
 
-       (hx/provider
-        {:context context
-         :value val}
-        child))))
+       [state dispatch])))
 
-#?(:clj
-   (defmacro action-context-provider
-     "a ContextProvider element to provide an action-context
+#?(:cljs
+   (defn use-action-context
+     "use a [`state` `dispatch`] provided in a react context
 
-       props:
-       - `context` - the `action-context` React context
-       - `initial-arg` - the initial `state` value
-       - `children` - only the first child will be included
-                      as a child of the `ContextProvider` element"
-     [& args]
+      - `ctx` - the react context
+      - `state-path` - optional path to retrieve from state
 
-     `(hx/$ ActionContextProvider ~@args)))
+      returns: [`state` `dispatch`]"
+     ([ctx] (use-action-context ctx nil))
+     ([ctx state-path]
+      (let [[state dispatch] (hooks/use-context ctx)]
+        [(get-in state state-path)
+         dispatch]))))
