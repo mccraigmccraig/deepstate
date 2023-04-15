@@ -4,15 +4,19 @@
 [![cljdoc badge](https://cljdoc.org/badge/com.github.mccraigmccraig/deepstate)](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate)
 
 
-A ClojureScript microlib for state management in a [Helix](https://github.com/lilactown/helix)-based React app
+A ClojureScript microlib for state management in a 
+[Helix](https://github.com/lilactown/helix)-based 
+[React](https://react.dev/) app
 
 ## Summary
 
-deepstate provides simple hooks-based state management primitives which
+deepstate provides simple hooks-based state management operations, which
 probably aren't very performant as the single source of truth in a large app
 (there is nothing like
-[Reagent](https://github.com/reagent-project/reagent)'s reactions'),
-but are simple, flexible, and straightforward to use in an async world.
+[Reagent](https://github.com/reagent-project/reagent)'s `Reaction`s) -
+but it doesn't need to be the single source of truth, and the 
+deepstate primitives are simple, flexible, and straightforward 
+to use in an async world
 
 ## require
 
@@ -22,16 +26,14 @@ but are simple, flexible, and straightforward to use in an async world.
 (require '[deepstate.action.axios :as a.ax])
 ```
 
-## Model and state
+## Model
 
-deepstate reduces a stream of events (called `action`s) onto a state value.
+deepstate reduces a stream of events (called `action`s) onto a `state` value.
+under the hood lives a React `useReducer` hook, which deepstate builds on
+to help you define complex actions with ease
 
-There are a few core concepts:
+### Core functions:
 
-* `action-context` - a React context for some deepstate state. Hooks need to
-   be passed such a context
-* [action-context-provider](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#action-context-provider) - 
-   an element providing an `action-context` to a component tree
 * [use-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#use-action) - 
    a hook used by components to interact with state. It returns a `state`
    value and a `dispatch` function
@@ -51,7 +53,7 @@ There are a few core concepts:
 
 ## A simple example
 
-A quite simple example, showing a synchronous state-only action and an
+Showing a synchronous state-only action and an
 asynchronous action.
 Clicks will result in consistent data however they are interleaved:
 
@@ -116,20 +118,16 @@ to conditionally create effects:
     (d/button {:on-click (fn [_] (dispatch ::fetch-apod))} "Fetch!"))))
 ```
 
-## action-context
+## [use-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#use-action)
 
-An `action-context` is created with `a/create-action-context`, and
-passed through a component tree by an `a/action-context-provider`
-element.
-
-Components then consume and update state through the `a/use-action` hook, which
-returns `[state dispatch]` - a state value and a dispatch fn. The
-`dispatch` fn is called with an `action` map, which will be handled to
-generate effects.
+Components interact with deepstate via the 
+[use-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#use-action)
+hook, which returns a `[state dispatch]` pair of the current `state` and a
+function to `dispatch` an `action` map to update state.
 
 ## Actions
 
-Actions are maps which describe an operation to change state (or perform
+`action`s are maps which describe an operation to change `state` (or perform
 some other effect). They have
 an `::a/action` key which selects a handler, and may have any other keys
 the particular handler requires.
@@ -138,19 +136,15 @@ the particular handler requires.
 
 An action is `dispatch`ed causing a handler to be invoked according
 to the `::a/action` key in the action. The handler
-returns a function of `state`, and when that is invoked it returns
+returns a `(fn <state>) -> action-effects` i.e. a function of `state`, 
+which when invoked returns
 a map of (all optional) `action-effects` (returning no effects is
-not very useful, but perfectly fine). The available effects are:
-
-* `::a/state` - a new state value
-* `::a/navigate` - a url to navigate to
-* `::a/dispatch` - an `action-map` | [`action-map`] to be dispatched
-* `::a/later` - a promise of a fn `(fn [state] ...)` -> `action-effects`
+not very useful, but perfectly fine). 
 
 It is possible to define an action handler directly, with
 `(defmethod a/handle <key> [action] (fn [state] ...))`, but it's
-easier to use one of the sugar macros, which allow for some
-destructuring:
+easier to use one of the sugar macros, which provide for some
+convenient destructuring:
 
 ## `action-effects`
 
@@ -158,8 +152,8 @@ There are currently 4 effects available:
 
 * `::a/state` - a new state value
 * `::a/navigate` - a url to navigate to
-* `::a/dispatch` - an `action-map` | [`action-map`] to be dispatched
-* `::a/later` - a promise of a fn `(fn [state] ...)` -> `action-effects`
+* `::a/dispatch` - an `action-map` | [`action-map`] to be `dispatch`ed
+* `::a/later` - a promise of a fn `Promise<(fn <state>) -> action-effects`>
       to provide more effects later
 
 ## [def-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#def-action)
@@ -194,11 +188,21 @@ to the updated state (i.e. not an `action-effects` map)
 ```
 ## [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.async#def-async-action)
 
-Defines a promise-based async action handler.
+Defines a promise-based async action handler, which creates a 
+promise to retrieve some `async-action-data` and manages an 
+`async-action-state` structure in the state to record progress
+and results. `async-action-data` has shape:
 
-The body of the definition has 2 or 3 forms
+``` clojure
+{::a/id <random-uuid>
+ ::a/status ::a/inflight|::a/success|::a/error
+ ::a/data <async-action-data>
+ ::a/error <async-action-error>}
+```
 
-1. a form returning a promise of the result data
+The body of the `def-async-action` definition has 2 or 3 forms:
+
+1. a form returning a promise of the `async-action-data`
 2. (optional) initialisation effects - may also return `::a/cancel` to cancel 
    the action without evaluating the promise form
 3. completion effects
@@ -221,8 +225,8 @@ navigate on completion:
      {id :id} ::a/data
      :as _next-action-state}
     {q :q
-     :as _action}]
-  (run-query action)
+     :as __action}]
+  (run-query q)
   (when (= ::a/success status)
     {::a/navigate (str "/item/" id)}))
 ```
@@ -239,7 +243,7 @@ with the `next-async-action-state`:
      :as _next-action-state}
     {q :q
      :as _action}]
-  (run-query action)
+  (run-query q)
   ;; debounce if there is already an inflight query
   (when (= ::a/inflight p-status)
      ::a/cancel)
@@ -247,16 +251,9 @@ with the `next-async-action-state`:
     {::a/navigate (str "/item/" n-id)}))
 ```
 
-These `def-async-action` will assoc an `async-action-state` map in the
+These `def-async-action` will assoc the `async-action-state` map in the
 global `state` at the action `key` path (the path can be overridden 
-by providing an `::action/path` key in the `action` map), with the shape
-
-``` clojure
-{::a/id <random-uuid>
- ::a/status ::a/inflight|::a/success|::a/error
- ::a/data ...
- ::a/error ...}
-```
+by providing an `::action/path` key in the `action` map), with the shape.
 
 ## [def-axios-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.axios#def-axios-action)
 
