@@ -122,63 +122,95 @@
 
            curr-async-action-state (get-in state ap)
 
-           ;; an id allows the effect-fn to detect whether
+           ;; an id allows an effect-fn to detect whether
            ;; it's out of date
            action-id (random-uuid)
-           new-async-action-state (merge
+           init-async-action-state (merge
                                    curr-async-action-state
                                    {::action/id action-id
                                     ::action/status ::action/inflight
                                     ::action/action action})
 
-           init-state (assoc-in state ap new-async-action-state)]
+           later-promise-fn (fn []
+                              (p/handle
+                               (async-action-data-promise-fn
+                                state
+                                curr-async-action-state
+                                init-async-action-state)
+                               (fn [r e]
+                                 (fn [state]
+                                   (let [curr-async-action-state (get-in state ap)
+                                         new-async-action-state (if (some? e)
+                                                                  {::action/id action-id
+                                                                   ::action/status ::action/error
+                                                                   ::action/error e}
+                                                                  {::action/id action-id
+                                                                   ::action/status ::action/success
+                                                                   ::action/data r
+                                                                   ::action/error nil})
+
+                                         ;; calculate effects with previous state but new
+                                         ;; async-action-state - so the effects calc can consider
+                                         ;; the previous state vs the update
+                                         {effs-state ::action/state
+                                          fix-state ::action/fix-state
+                                          :as effs} (completion-effects-fn
+                                                     state
+                                                     curr-async-action-state
+                                                     new-async-action-state)
+
+                                         new-state (or
+                                                    ;; take the replace state unmodified
+                                                    fix-state
+
+                                                    ;; or update with the new async-action-state
+                                                    (update-in
+                                                     (or effs-state state)
+                                                     ap
+                                                     merge
+                                                     new-async-action-state))]
+
+                                     (merge
+                                      effs
+                                      {::action/state new-state}))))))
+
+           init-effs (init-effects-fn
+                      state
+                      curr-async-action-state
+                      init-async-action-state)
+
+           init-effs (if (= ::action/cancel init-effs)
+                       (do
+                         ;; action is cancelled!
+                         (js/console.info
+                          "deepstate.action.async/async-action-handler - cancelled!"
+                          (pr-str action))
+                         nil)
+
+                        (let [{init-effs-state ::action/state
+                               init-effs-fix-state ::action/fix-state} init-effs
+
+                              init-effs (dissoc init-effs ::action/state ::action/fix-state)
+
+                              init-state (or
+                                          init-effs-fix-state
+
+                                          (update-in
+                                           (or init-effs-state state)
+                                           ap
+                                           merge
+                                           init-async-action-state))]
+
+                          (merge
+                           init-effs
+                           {::action/state init-state})))]
 
        ;; (js/console.info "async-action" (pr-str action-map))
 
-       {::action/state init-state
+       (cond-> init-effs
 
-        ::action/later
-        (p/handle
-         (async-action-data-promise-fn
-          state
-          curr-async-action-state
-          new-async-action-state)
-         (fn [r e]
-           (fn [state]
-             (let [curr-async-action-state (get-in state ap)
-                   new-async-action-state (if (some? e)
-                                            {::action/id action-id
-                                             ::action/status ::action/error
-                                             ::action/error e}
-                                            {::action/id action-id
-                                             ::action/status ::action/success
-                                             ::action/data r
-                                             ::action/error nil})
-
-                   ;; calculate effects with previous state but new
-                   ;; async-action-state - so the effects calc can consider
-                   ;; the previous state vs the update
-                   {effs-state ::action/state
-                    fix-state ::action/fix-state
-                    :as effs} (completion-effects-fn
-                               state
-                               curr-async-action-state
-                               new-async-action-state)
-
-                   new-state (or
-                              ;; take the replace state unmodified
-                              fix-state
-
-                              ;; or update with the new async-action-state
-                              (update-in
-                               (or effs-state state)
-                               ap
-                               merge
-                               new-async-action-state))]
-
-               (merge
-                effs
-                {::action/state new-state})))))})))
+         ;; only schedule the action promise if the action was not cancelled
+         (some? init-effs) (assoc ::action/later (later-promise-fn))))))
 
 #?(:clj
    (defmacro async-action-bindings
@@ -214,7 +246,9 @@
       - `bindings` - bindings for the global `state`, the `async-action-state` and
           the `action` map
       - `async-action-data-promise` - a promise of the data for the async action
-      - `effects-map` - a form to be evaluated after the
+      - `init-effects-map` - a form to be evaluated before the promise is
+         created
+      - `completion-effects-map` - a form to be evaluated after the
          `async-action-data-promise` has completed
       - `handler-fn` - the fn implementing specific async action behaviour"
      [key
@@ -276,21 +310,6 @@
              init-effects-fn#
              completion-effects-fn#))))))
 
-;; TODO
-;; this isn't quite right yet
-;;
-;; - extend destructuring to have
-;;   - prev-async-action-state-bindings
-;;   - next-async-action-state-bindings
-;;
-;; - init-effects
-;;   - called before the promise-form is evaluated
-;;   - special ::cancel result cancels the update and
-;;     doesn't evaluate the promise
-;; - completion-effects
-;;   - called
-
-
 #?(:clj
    (defmacro def-async-action
      "a macro which defines an action handler to service a promise-based async
@@ -315,7 +334,9 @@
        - `action-bindings` : fn bindings to destructure the `action` map
        - `async-action-data-promise` : form returning a promise of the
           `<async-action-data>` - may use any established bindings
-       - `effects-map` : form which will be evaluated when the
+       - `init-effects-map` : form which will be ebaluated before the promise
+         is created
+       - `completion-effects-map` : form which will be evaluated when the
          `async-action-data-promise` completes and
            returning `action-effects` including `::action/state`,
           `::action/dispatch` and `::action/navigate`"
