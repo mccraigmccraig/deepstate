@@ -240,33 +240,38 @@
 
       returns:
         [`state` `dispatch`]"
-     [initial-state]
-     (let [[state react-dispatch] (hooks/use-reducer action-fn-reducer initial-state)
+     ([] (use-action {}))
+     ([initial-state]
+      (when-not (map? initial-state)
+        (throw (ex-info "initial-state must be a map"
+                        {:initial-state initial-state})))
 
-           ;; navurl will receive an optional url to navigate to after
-           ;; an action is handled
-           [navurl set-navurl] (hooks/use-state nil)
+      (let [[state react-dispatch] (hooks/use-reducer action-fn-reducer initial-state)
 
-           val (make-action-context-val state react-dispatch set-navurl)
+            ;; navurl will receive an optional url to navigate to after
+            ;; an action is handled
+            [navurl set-navurl] (hooks/use-state nil)
 
-           navigate (nav/navigator)
+            val (make-action-context-val state react-dispatch set-navurl)
 
-           dispatch (partial internal-dispatch val)]
+            navigate (nav/navigator)
+
+            dispatch (partial internal-dispatch val)]
 
 
-       ;; if navigate is called during a render then we get an
-       ;; error from react - so collect the forward url in navurl
-       ;; and navigate after render
-       (hooks/use-effect
-        [navurl]
-        (when (some? navurl)
-          (js/console.info
-           "deepstate.action/action-context-provider navigating"
-           navurl)
-          (set-navurl nil)
-          (navigate navurl)))
+        ;; if navigate is called during a render then we get an
+        ;; error from react - so collect the forward url in navurl
+        ;; and navigate after render
+        (hooks/use-effect
+         [navurl]
+         (when (some? navurl)
+           (js/console.info
+            "deepstate.action/action-context-provider navigating"
+            navurl)
+           (set-navurl nil)
+           (navigate navurl)))
 
-       [state dispatch])))
+        [state dispatch]))))
 
 #?(:cljs
    (defn use-action-context

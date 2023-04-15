@@ -104,7 +104,7 @@
 (defnc Layout
   []
   (let [[{todos ::todos
-          :as _state} dispatch :as state-dispatch] (a/use-action {})
+          :as _state} dispatch :as state-dispatch] (a/use-action)
 
         active-todos (filter (comp not :completed?) todos)
 
