@@ -41,6 +41,8 @@
   (p/delay (+ 1000 (rand-int 5000))
            (todo (random-uuid) title))
 
+  nil
+
   ;; on completion add the new todo
   (if (not= p-id n-id)
     (do

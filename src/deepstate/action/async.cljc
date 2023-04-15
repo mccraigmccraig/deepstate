@@ -115,7 +115,8 @@
       state
       action
       async-action-data-promise-fn
-      effects-fn]
+      init-effects-fn
+      completion-effects-fn]
 
      (let [ap (get-action-path key action)
 
@@ -159,7 +160,7 @@
                    ;; the previous state vs the update
                    {effs-state ::action/state
                     fix-state ::action/fix-state
-                    :as effs} (effects-fn
+                    :as effs} (completion-effects-fn
                                state
                                curr-async-action-state
                                new-async-action-state)
@@ -219,7 +220,8 @@
      [key
       [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
       async-action-data-promise
-      effects-map
+      init-effects-map
+      completion-effects-map
       handler-fn]
 
      `(defmethod action/handle ~key
@@ -239,27 +241,40 @@
                                                  action#
                                                  ~async-action-data-promise))
 
+                init-effects-fn# (fn [state#
+                                      async-action-state#
+                                      new-async-action-state#]
+                                   (async-action-bindings
+                                    ~key
+                                    ~bindings
+                                    state#
+                                    async-action-state#
+                                    new-async-action-state#
+                                    action#
+                                    ~init-effects-map))
+
                 ;; the effects-fn will use the same bindings as the
                 ;; async-action-data-promise, but will be invoked later in
                 ;; reaction to the promise completing
-                effects-fn# (fn [state#
-                                 async-action-state#
-                                 new-async-action-state#]
-                              (async-action-bindings
-                               ~key
-                               ~bindings
-                               state#
-                               async-action-state#
-                               new-async-action-state#
-                               action#
-                               ~effects-map))]
+                completion-effects-fn# (fn [state#
+                                            async-action-state#
+                                            new-async-action-state#]
+                                         (async-action-bindings
+                                          ~key
+                                          ~bindings
+                                          state#
+                                          async-action-state#
+                                          new-async-action-state#
+                                          action#
+                                          ~completion-effects-map))]
 
             (~handler-fn
              ~key
              state#
              action#
              async-action-data-promise-fn#
-             effects-fn#))))))
+             init-effects-fn#
+             completion-effects-fn#))))))
 
 ;; TODO
 ;; this isn't quite right yet
@@ -307,11 +322,13 @@
      [key
       [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
       async-action-data-promise
-      effects-map]
+      init-effects-map
+      completion-effects-map]
 
      `(def-async-action-handler
         ~key
         ~bindings
         ~async-action-data-promise
-        ~effects-map
+        ~init-effects-map
+        ~completion-effects-map
         async-action-handler)))
