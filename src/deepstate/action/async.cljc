@@ -114,18 +114,23 @@
      [key
       state
       action
-      async-action-data-promise
+      async-action-data-promise-fn
       effects-fn]
 
      (let [ap (get-action-path key action)
 
+           curr-async-action-state (get-in state ap)
+
            ;; an id allows the effect-fn to detect whether
            ;; it's out of date
            action-id (random-uuid)
-           init-state (update-in state ap
-                                 merge {::action/id action-id
-                                        ::action/status ::action/inflight
-                                        ::action/action action})]
+           new-async-action-state (merge
+                                   curr-async-action-state
+                                   {::action/id action-id
+                                    ::action/status ::action/inflight
+                                    ::action/action action})
+
+           init-state (assoc-in state ap new-async-action-state)]
 
        ;; (js/console.info "async-action" (pr-str action-map))
 
@@ -133,10 +138,14 @@
 
         ::action/later
         (p/handle
-         async-action-data-promise
+         (async-action-data-promise-fn
+          state
+          curr-async-action-state
+          new-async-action-state)
          (fn [r e]
            (fn [state]
-             (let [new-async-action-state (if (some? e)
+             (let [curr-async-action-state (get-in state ap)
+                   new-async-action-state (if (some? e)
                                             {::action/id action-id
                                              ::action/status ::action/error
                                              ::action/error e}
@@ -150,7 +159,10 @@
                    ;; the previous state vs the update
                    {effs-state ::action/state
                     fix-state ::action/fix-state
-                    :as effs} (effects-fn state new-async-action-state)
+                    :as effs} (effects-fn
+                               state
+                               curr-async-action-state
+                               new-async-action-state)
 
                    new-state (or
                               ;; take the replace state unmodified
@@ -174,14 +186,19 @@
       these bindings to destructure the global `state`, the `async-action-state`
       and the `action` map"
      [_key
-      [state-bindings async-action-state-bindings action-bindings]
+      [state-bindings
+       async-action-state-bindings
+       new-async-action-state-bindings
+       action-bindings]
       state
       async-action-state
+      new-async-action-state
       action
       & body]
 
      `(let [~state-bindings ~state
             ~async-action-state-bindings ~async-action-state
+            ~new-async-action-state-bindings ~new-async-action-state
             ~action-bindings (action/remove-action-keys ~action)]
 
         ~@body)))
@@ -210,33 +227,54 @@
 
         (fn [state#]
 
-          (let [async-action-state# (get-async-action-state ~key state# action#)
-                async-action-data-promise# (async-action-bindings
-                                            ~key
-                                            ~bindings
-                                            state#
-                                            async-action-state#
-                                            action#
-                                            ~async-action-data-promise)
+          (let [async-action-data-promise-fn# (fn [state#
+                                                   async-action-state#
+                                                   new-async-action-state#]
+                                                (async-action-bindings
+                                                 ~key
+                                                 ~bindings
+                                                 state#
+                                                 async-action-state#
+                                                 new-async-action-state#
+                                                 action#
+                                                 ~async-action-data-promise))
 
                 ;; the effects-fn will use the same bindings as the
                 ;; async-action-data-promise, but will be invoked later in
                 ;; reaction to the promise completing
-                effects-fn# (fn [curr-state# new-async-action-state#]
-                               (async-action-bindings
-                                ~key
-                                ~bindings
-                                curr-state#
-                                new-async-action-state#
-                                action#
-                                ~effects-map))]
+                effects-fn# (fn [state#
+                                 async-action-state#
+                                 new-async-action-state#]
+                              (async-action-bindings
+                               ~key
+                               ~bindings
+                               state#
+                               async-action-state#
+                               new-async-action-state#
+                               action#
+                               ~effects-map))]
 
             (~handler-fn
              ~key
              state#
              action#
-             async-action-data-promise#
+             async-action-data-promise-fn#
              effects-fn#))))))
+
+;; TODO
+;; this isn't quite right yet
+;;
+;; - extend destructuring to have
+;;   - prev-async-action-state-bindings
+;;   - next-async-action-state-bindings
+;;
+;; - init-effects
+;;   - called before the promise-form is evaluated
+;;   - special ::cancel result cancels the update and
+;;     doesn't evaluate the promise
+;; - completion-effects
+;;   - called
+
 
 #?(:clj
    (defmacro def-async-action

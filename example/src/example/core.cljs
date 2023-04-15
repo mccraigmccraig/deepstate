@@ -25,13 +25,14 @@
 ;; from requests issued before the last (active)
 ;; request will be discarded
 (a.a/def-async-action ::add
-  [{{p-id ::a/id
-     :as _persisted-async-action-state} ::add
-    :as state}
+  [state
+
+   {p-id ::a/id
+     :as _curr-async-action-state}
 
    {new-todo ::a/data
     n-id ::a/id
-    :as _async-action-state}
+    :as _new-async-action-state}
 
    {title ::title
     :as _action}]
