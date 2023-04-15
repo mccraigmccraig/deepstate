@@ -213,28 +213,67 @@
          (some? init-effs) (assoc ::action/later (later-promise-fn))))))
 
 #?(:clj
+   (defn choose-bindings
+     "allow a few different binding arities
+
+     [action-bindings]
+
+     [state-bindings
+      action-bindings]
+
+     [state-bindings
+      new-async-action-state-bindings
+      action-bindings]
+
+     [state-bindings
+      async-action-state-bindings
+      new-async-action-state-bindings
+      action-bindings]"
+     [[b-p0 b-p1 b-p2 b-p3 :as bindings]]
+     (condp = (count bindings)
+       1 [nil  nil  nil  b-p0]
+       2 [b-p0 nil  nil  b-p1]
+       3 [b-p0 nil  b-p1 b-p2]
+       4 [b-p0 b-p1 b-p2 b-p3]
+       (throw (ex-info
+               (str "unparseable bindings arity. must be one of:\n"
+                    " [action-bindings]\n"
+                    " [state-bindings\n"
+                    "  action-bindings]\n"
+                    " [state-bindings\n"
+                    "  new-async-action-state-bindings\n"
+                    "  action-bindings]\n"
+                    " [state-bindings\n"
+                    "  async-action-state-bindings\n"
+                    "  new-async-action-state-bindings\n"
+                    "  action-bindings]")
+               {:bindings bindings})))))
+
+#?(:clj
    (defmacro async-action-bindings
      "a macro which establishes bindings for async action definitions... both
       the `action-data-promise` and the `effects-map` can use
       these bindings to destructure the global `state`, the `async-action-state`
       and the `action` map"
      [_key
-      [state-bindings
-       async-action-state-bindings
-       new-async-action-state-bindings
-       action-bindings]
+      bindings
       state
       async-action-state
       new-async-action-state
       action
       & body]
 
-     `(let [~state-bindings ~state
-            ~async-action-state-bindings ~async-action-state
-            ~new-async-action-state-bindings ~new-async-action-state
-            ~action-bindings (action/remove-action-keys ~action)]
+     (let [[state-bindings
+            async-action-state-bindings
+            new-async-action-state-bindings
+            action-bindings] (choose-bindings bindings)]
 
-        ~@body)))
+       `(let [~state-bindings ~state
+              ~async-action-state-bindings ~async-action-state
+              ~new-async-action-state-bindings ~new-async-action-state
+              ~action-bindings (action/remove-action-keys ~action)]
+
+          ~@body))))
 
 #?(:clj
    (defmacro def-async-action-handler
