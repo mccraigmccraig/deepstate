@@ -27,7 +27,8 @@
 (a.a/def-async-action ::add
   [state
 
-   {p-id ::a/id
+   {c-status ::a/status
+    c-id ::a/id
      :as _curr-async-action-state}
 
    {new-todo ::a/data
@@ -41,12 +42,14 @@
   (p/delay (+ 1000 (rand-int 5000))
            (todo (random-uuid) title))
 
-  nil
+  ;; debounce
+  ;; (when (= ::a/inflight c-status)
+  ;;   ::a/cancel)
 
   ;; on completion add the new todo
-  (if (not= p-id n-id)
+  (if (not= c-id n-id)
     (do
-      (js/console.warn "out of order" (pr-str p-id) (pr-str n-id))
+      (js/console.warn "out of order" (pr-str c-id) (pr-str n-id))
       {::a/fix-state state})
 
     {::a/state (update state ::todos conj new-todo)}))
