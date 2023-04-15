@@ -32,6 +32,17 @@ deepstate reduces a stream of events (called `action`s) onto a `state` value.
 under the hood lives a React `useReducer` hook, which deepstate builds on
 to help you define complex actions with ease
 
+### How is this different to any other `useReducer` ?
+
+deepstate is fundamentally a vanilla `useReducer`, but when it 
+handles an `action` the result is a 
+`(fn <state>) -> <action-effects>`, i.e. a function of `state` returning
+`action-effects`. The `action-effects` may include `state` updates, but may 
+also include navigation, further `dispatch`es and a promise of 
+later delivery of more `action-effects`. deepstate provides
+functions for handling these effect functions and macros
+for making it easy to create them. 
+
 ### Core functions:
 
 * [use-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#use-action) - 
