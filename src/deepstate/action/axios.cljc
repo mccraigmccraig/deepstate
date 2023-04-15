@@ -64,31 +64,54 @@
      [key
       state
       action
-      axios-promise
-      reaction-fn]
+      axios-promise-fn
+      init-effects-fn
+      completion-effects-fn]
 
-     (let [async-action-data-promise (handle-axios-response axios-promise)]
+     (let [async-action-data-promise-fn
+           (fn [state async-action-state new-async-action-state]
+             (let [axios-promise (axios-promise-fn
+                                  state
+                                  async-action-state
+                                  new-async-action-state)]
+               (handle-axios-response axios-promise)))]
 
        (action.async/async-action-handler
         key
         state
         action
-        async-action-data-promise
-        reaction-fn))))
+        async-action-data-promise-fn
+        init-effects-fn
+        completion-effects-fn))))
 
 #?(:clj
    (defmacro def-axios-action
      "define an axios based async action - it's like an
       [[deepstate.action.async/def-async-action]] with parsing
       of the result of `axios-promise` to make things friendlier"
-     [key
-      [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
-      axios-promise
-      effects-map]
+     ([key
+       bindings
+       axios-promise
+       init-effects-map
+       completion-effects-map]
 
-     `(action.async/def-async-action-handler
-        ~key
-        ~bindings
-        ~axios-promise
-        ~effects-map
-        axios-action-handler)))
+      `(action.async/def-async-action-handler
+         ~key
+         ~bindings
+         ~axios-promise
+         ~init-effects-map
+         ~completion-effects-map
+         axios-action-handler))
+
+     ([key
+       bindings
+       axios-promise
+       completion-effects-map]
+
+      `(action.async/def-async-action-handler
+         ~key
+         ~bindings
+         ~axios-promise
+         nil
+         ~completion-effects-map
+         axios-action-handler))))
