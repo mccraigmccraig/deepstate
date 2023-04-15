@@ -38,9 +38,8 @@
    {title ::title
     :as _action}]
 
-  ;; fake a random network delay
-  (p/delay (+ 1000 (rand-int 5000))
-           (todo (random-uuid) title))
+  ;; fake a network delay
+  (p/delay 1000 (todo (random-uuid) title))
 
   ;; debounce
   ;; (when (= ::a/inflight c-status)

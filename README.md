@@ -277,8 +277,9 @@ promise, and the responseor error will be parsed into the `async-action-state`
 See the [example](https://github.com/mccraigmccraig/deepstate/tree/trunk/example)
 folder in the git repo. It's a modified
 [lilactown/helix-todo-mvc](https://github.com/lilactown/helix-todo-mvc) with
-the state management converted to deepstate and the `::add` action being
-made async with a random delay added
+state management converted to deepstate and the `::add` action being
+made async with a simulated network delay and a last-inflight-request-wins
+debounce
 
 Build and run the example with `npm start`
 
