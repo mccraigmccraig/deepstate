@@ -73,14 +73,14 @@ Clicks will result in consistent data however they are interleaved:
   (promesa.core/delay 2000 5)
 
   ;; effects which can use the destructured action data
-  or other state
+  ;; or other state
   {::a/state (update state ::counter + data)})
 
 (def action-ctx (a/create-action-context))
 
 (defnc App
  []
- (let [[counter dispatch] (a/use-action action-ctx [::counter])]
+ (let [[{counter ::counter :as __state} dispatch] (a/use-action {::counter 0})]
   (d/div
     (d/p "Counter: " counter)
     (d/button {:on-click (fn [_] (dispatch ::inc-counter))} "inc")
@@ -108,13 +108,13 @@ to conditionally create effects:
 
 (defnc App
   []
-  (let [[{status ::a/status
-          result ::a/result
-          :as apod}
-         dispatch] (a/use-action action-ctx [::fetch-apod])]
+  (let [[{{status ::a/status
+           data ::a/data
+           :as apod} ::fetch-apod}
+         dispatch] (a/use-action {})]
   (d/div
     (d/p "Status:" (str status))
-    (d/p "APOD:" (pr-str result))
+    (d/p "APOD:" (pr-str data))
     (d/button {:on-click (fn [_] (dispatch ::fetch-apod))} "Fetch!"))))
 ```
 
