@@ -100,49 +100,55 @@
    {:as _action}]
   (assoc state ::todos (filterv (comp not :completed?) todos)))
 
-(def action-ctx (a/create-action-context))
+(def action-ctx (hx/create-context))
 
 (defnc Layout
   []
-  (let [[todos dispatch] (a/use-action action-ctx [::todos])
+  (let [[{todos ::todos
+          :as _state} dispatch :as state-dispatch] (a/use-action {})
 
         active-todos (filter (comp not :completed?) todos)
 
         add-todo #(dispatch {::a/action ::add ::title (string/trim %)})
         toggle-all #(dispatch ::toggle-all)
         clear-completed #(dispatch ::clear-completed)]
-    (d/div
-     (d/section
-      {:class "todoapp"}
-      (d/header
-       {:class "header"}
-       (c/title)
-       (c/new-todo {:on-complete add-todo}))
-      (when (< 0 (count todos))
-        (<>
-         (d/section
-          {:class "main"}
-          (d/input {:id "toggle-all" :class "toggle-all" :type "checkbox"
-                    :checked (all-complete? todos) :on-change toggle-all})
-          (d/label {:for "toggle-all"} "Mark all as complete")
-          (d/ul
-           {:class "todo-list"}
-           ($ rr/Outlet)
-           ))
-         (d/footer
-          {:class "footer"}
-          (d/span
-           {:class "todo-count"}
-           (d/strong (count active-todos))
-           " items left")
-          (d/ul
-           {:class "filters"}
-           (d/li ($ rr/NavLink {:to "/" :className (j/fn [^:js {isActive :isActive}] (when isActive "selected"))} "All"))
-           (d/li ($ rr/NavLink {:to "/active" :className (j/fn [^:js {isActive :isActive}] (when isActive "selected"))} "Active"))
-           (d/li ($ rr/NavLink {:to "/completed" :className (j/fn [^:js {isActive :isActive}] (when isActive "selected"))} "Completed")))
-          (d/button {:class "clear-completed"
-                     :on-click clear-completed} "Clear completed")))))
-     (c/app-footer))))
+
+    (hx/provider
+     {:context action-ctx
+      :value state-dispatch}
+
+     (d/div
+      (d/section
+       {:class "todoapp"}
+       (d/header
+        {:class "header"}
+        (c/title)
+        (c/new-todo {:on-complete add-todo}))
+       (when (< 0 (count todos))
+         (<>
+          (d/section
+           {:class "main"}
+           (d/input {:id "toggle-all" :class "toggle-all" :type "checkbox"
+                     :checked (all-complete? todos) :on-change toggle-all})
+           (d/label {:for "toggle-all"} "Mark all as complete")
+           (d/ul
+            {:class "todo-list"}
+            ($ rr/Outlet)
+            ))
+          (d/footer
+           {:class "footer"}
+           (d/span
+            {:class "todo-count"}
+            (d/strong (count active-todos))
+            " items left")
+           (d/ul
+            {:class "filters"}
+            (d/li ($ rr/NavLink {:to "/" :className (j/fn [^:js {isActive :isActive}] (when isActive "selected"))} "All"))
+            (d/li ($ rr/NavLink {:to "/active" :className (j/fn [^:js {isActive :isActive}] (when isActive "selected"))} "Active"))
+            (d/li ($ rr/NavLink {:to "/completed" :className (j/fn [^:js {isActive :isActive}] (when isActive "selected"))} "Completed")))
+           (d/button {:class "clear-completed"
+                      :on-click clear-completed} "Clear completed")))))
+      (c/app-footer)))))
 
 (defn make-todo-list
   [dispatch]
@@ -163,7 +169,7 @@
 
 (defnc Active
   []
-  (let [[todos dispatch] (a/use-action action-ctx [::todos])
+  (let [[todos dispatch] (a/use-action-context action-ctx [::todos])
         active-todos (filter (comp not :completed?) todos)
         todo-list (make-todo-list dispatch)]
 
@@ -171,7 +177,7 @@
 
 (defnc Completed
   []
-  (let [[todos dispatch] (a/use-action action-ctx [::todos])
+  (let [[todos dispatch] (a/use-action-context action-ctx [::todos])
         completed-todos (filter :completed? todos)
         todo-list (make-todo-list dispatch)]
 
@@ -179,7 +185,7 @@
 
 (defnc Default
   []
-  (let [[todos dispatch] (a/use-action action-ctx [::todos])
+  (let [[todos dispatch] (a/use-action-context action-ctx [::todos])
         todo-list (make-todo-list dispatch)]
 
     (todo-list todos)))
@@ -189,10 +195,7 @@
   (rr/createBrowserRouter
    (clj->js
 
-    [{:element (a/action-context-provider
-                {:context action-ctx
-                 :initial-arg {::todos []}
-                 :children [($ Layout)]})
+    [{:element ($ Layout)
 
       :children
       [{:path "/"
