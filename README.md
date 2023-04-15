@@ -194,29 +194,66 @@ to the updated state (i.e. not an `action-effects` map)
 ```
 ## [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.async#def-async-action)
 
-Defines a promise-based async action handler. The action is specified as
-a form returning a promise of the result. The global `state`, the
-`async-action-state` and the `action` map are all available for
-destructuring
+Defines a promise-based async action handler.
+
+The body of the definition has 2 or 3 forms
+
+1. a form returning a promise of the result data
+2. (optional) initialisation effects - may also return `::a/cancel` to cancel 
+   the action without evaluating the promise form
+3. completion effects
+
+The body forms are evaluated separately, and may all use bindings from
+the bindings vector. Several bindings vector arities are offered:
+
+- `[action-bindings]`
+- `[state-bindings action-bindings]`
+- `[state-bindings next-async-action-state-bindings action-bindings]`
+- `[state-bindings async-action-state-bindings next-async-action-state-bindings action-bindings]`
+
+So a simple async action may access the `next-async-action-state`and 
+navigate on completion:
 
 ``` clojure
 (a.a/def-async-action ::run-query
    [__state
     {status ::a/status
      {id :id} ::a/data
-     :as __action-state}
+     :as _next-action-state}
     {q :q
-     :as __action}]
+     :as _action}]
   (run-query action)
   (when (= ::a/success status)
     {::a/navigate (str "/item/" id)}))
 ```
 
-This `def-async-action` will assoc an `async-action-state` map in the
-global `state` at path `[::run-query]`, with the shape
+While another action may debounce by comparing the `async-action-state`
+with the `next-async-action-state`:
 
 ``` clojure
-{::a/status ::a/inflight|::a/success|::a/error
+(a.a/def-async-action ::debounced
+   [__state
+    {p-status ::a/status
+     :as _action-state}
+    {n-id ::a/id
+     :as _next-action-state}
+    {q :q
+     :as _action}]
+  (run-query action)
+  ;; debounce if there is already an inflight query
+  (when (= ::a/inflight p-status)
+     ::a/cancel)
+  (when (= ::a/success status)
+    {::a/navigate (str "/item/" n-id)}))
+```
+
+These `def-async-action` will assoc an `async-action-state` map in the
+global `state` at the action `key` path (the path can be overridden 
+by providing an `::action/path` key in the `action` map), with the shape
+
+``` clojure
+{::a/id <random-uuid>
+ ::a/status ::a/inflight|::a/success|::a/error
  ::a/data ...
  ::a/error ...}
 ```
@@ -234,6 +271,8 @@ folder in the git repo. It's a modified
 [lilactown/helix-todo-mvc](https://github.com/lilactown/helix-todo-mvc) with
 the state management converted to deepstate and the `::add` action being
 made async with a random delay added
+
+Build and run the example with `npm start`
 
 # license
 
