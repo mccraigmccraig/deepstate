@@ -231,9 +231,9 @@
       action-bindings]"
      [[b-p0 b-p1 b-p2 b-p3 :as bindings]]
      (condp = (count bindings)
-       1 [nil  nil  nil  b-p0]
-       2 [b-p0 nil  nil  b-p1]
-       3 [b-p0 nil  b-p1 b-p2]
+       1 ['_#  '_#  '_#  b-p0]
+       2 [b-p0 '_#  '_#  b-p1]
+       3 [b-p0 '_#  b-p1 b-p2]
        4 [b-p0 b-p1 b-p2 b-p3]
        (throw (ex-info
                (str "unparseable bindings arity. must be one of:\n"
