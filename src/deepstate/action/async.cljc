@@ -340,16 +340,29 @@
          `async-action-data-promise` completes and
            returning `action-effects` including `::action/state`,
           `::action/dispatch` and `::action/navigate`"
-     [key
-      [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
-      async-action-data-promise
-      init-effects-map
-      completion-effects-map]
+     ([key
+       [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
+       async-action-data-promise
+       init-effects-map
+       completion-effects-map]
 
-     `(def-async-action-handler
-        ~key
-        ~bindings
-        ~async-action-data-promise
-        ~init-effects-map
-        ~completion-effects-map
-        async-action-handler)))
+      `(def-async-action-handler
+         ~key
+         ~bindings
+         ~async-action-data-promise
+         ~init-effects-map
+         ~completion-effects-map
+         async-action-handler))
+
+     ([key
+       [_state-bindings _async-action-state-bindings _action-bindings :as bindings]
+       async-action-data-promise
+       completion-effects-map]
+
+      `(def-async-action-handler
+         ~key
+         ~bindings
+         ~async-action-data-promise
+         nil
+         ~completion-effects-map
+         async-action-handler))))
