@@ -34,14 +34,14 @@ to help you define complex actions with ease
 
 ### How is this different to any other `useReducer` ?
 
-deepstate is fundamentally a vanilla `useReducer`, but when it 
-handles an `action` the result is a 
+deepstate is fundamentally a vanilla React `useReducer`, but the values
+dispatched to the underlying React `useReducer` are functions of `state` - 
 `(fn <state>) -> <action-effects>`, i.e. a function of `state` returning
 `action-effects`. The `action-effects` may include `state` updates, but may 
 also include navigation, further `dispatch`es and a promise of 
-later delivery of more `action-effects`. deepstate provides
-functions for handling these effect functions and macros
-for making it easy to create them. 
+later delivery of more `action-effects`. Such an approach gives a lot of 
+flexibility, at the expense of some difficulty creating the function values. 
+deepstate makes it easy to create and use these functions 
 
 ### Core functions:
 
