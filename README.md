@@ -3,19 +3,19 @@
 [![Clojars Project](https://img.shields.io/clojars/v/com.github.mccraigmccraig/deepstate.svg)](https://clojars.org/com.github.mccraigmccraig/deepstate)
 [![cljdoc badge](https://cljdoc.org/badge/com.github.mccraigmccraig/deepstate)](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate)
 
-
-A ClojureScript microlib for state management in a 
-[Helix](https://github.com/lilactown/helix)-based 
+A ClojureScript microlib for state management in a
+[Helix](https://github.com/lilactown/helix)-based
 [React](https://react.dev/) app
 
 ## Summary
 
-deepstate provides simple hooks-based state management operations, which
-probably aren't very performant as the single source of truth in a large app
+deepstate is a tiny library providing hooks-based state management operations
+for [Helix](https://github.com/lilactown/helix) apps.
+It's probably not very performant as the single source of truth in a large app
 (there is nothing like
 [Reagent](https://github.com/reagent-project/reagent)'s `Reaction`s) -
-but it doesn't need to be the single source of truth, and the 
-deepstate primitives are simple, flexible, and straightforward 
+but it doesn't need to be the single source of truth, and the
+deepstate primitives are flexible, and straightforward
 to use in an async world
 
 ## require
@@ -35,38 +35,39 @@ to help you define complex actions with ease
 ### How is this different to any other `useReducer` ?
 
 deepstate is fundamentally a vanilla React `useReducer`, but the values
-dispatched to the underlying React `useReducer` are functions of `state` - 
+dispatched to the underlying React `useReducer` are functions of `state` -
 `(fn <state>) -> <action-effects>`, i.e. a function of `state` returning
-`action-effects`. The `action-effects` may include `state` updates, but may 
-also include navigation, further `dispatch`es and a promise of 
-later delivery of more `action-effects`. Such an approach gives a lot of 
-flexibility, at the expense of some difficulty creating the function values. 
-deepstate makes it easy to create and use these functions 
+`action-effects`. The `action-effects` may include `state` updates, but may
+also include navigation, further `dispatch`es and a promise of
+later delivery of more `action-effects`. This approach provides a lot of
+flexibility for dealing with computations (such as async requests) with
+evolving state, at the expense of some difficulty creating the function values.
+deepstate makes it easy to create and use these functions
 
 ### Core functions:
 
-* [use-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#use-action) - 
+* [use-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#use-action) -
    a hook used by components to interact with state. It returns a `state`
    value and a `dispatch` function
-* `dispatch` - a fn returned by the [[deepstate.action/use-action]] hook which
-   sends an action to be handled
+* `dispatch` - a fn returned by the
+   [use-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#use-action)
+   hook which sends an action to be handled
 * [def-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#def-action) -
   a macro which defines a generic action handler. There are more specialised
   variants such as:
-  * [def-state-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#def-state-action) - 
+  * [def-state-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#def-state-action) -
     defines an action handler which only modifies state
-  * [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.async#def-async-action) - 
-    defines an action handler which runs a promise-based async computation and 
-    records the status and result in a standard schema
-  * [def-axios-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.axios#def-axios-action) - 
-    an async action for [axios](https://axios-http.com/) requests which 
+  * [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.async#def-async-action) -
+    defines an action handler which runs a promise-based async computation and
+    records the evolving status and result in state with a standard schema
+  * [def-axios-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.axios#def-axios-action) -
+    an async action for [axios](https://axios-http.com/) requests which
     parses the responses
 
 ## A simple example
 
-Showing a synchronous state-only action and an
-asynchronous action.
-Clicks will result in consistent data however they are interleaved:
+Shows a synchronous state-only action and an asynchronous action.
+Clicks result in consistent data however they are interleaved:
 
 ``` clojure
 (a/def-state-action ::inc-counter
@@ -98,7 +99,7 @@ Clicks will result in consistent data however they are interleaved:
     (d/button {:on-click (fn [_] (dispatch ::inc-delay))} "+5 delay"))))
 ```
 
-Another example showing how the result of an async action can be destructured
+Another example showing how the data returned by an async action can be destructured
 to conditionally create effects:
 
 ``` clojure
@@ -107,10 +108,10 @@ to conditionally create effects:
    {status ::a/status
     :as async-action-state}
    action]
-   
+
   ;; a promise of the action data
-  (axios/get "https://api.nasa.gov/planetary/apod\?api_key\=DEMO_KEY")
-  
+  (axios/get "https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY")
+
   ;; only create a navigate effect when successful
   (when (= ::a/success status)
     {::a/navigate "/show-pic"}))
@@ -131,7 +132,7 @@ to conditionally create effects:
 
 ## [use-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#use-action)
 
-Components interact with deepstate via the 
+Components interact with deepstate via the
 [use-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action#use-action)
 hook, which returns a `[state dispatch]` pair of the current `state` and a
 function to `dispatch` an `action` map to update state.
@@ -147,14 +148,14 @@ the particular handler requires.
 
 An action is `dispatch`ed causing a handler to be invoked according
 to the `::a/action` key in the action. The handler
-returns a `(fn <state>) -> action-effects` i.e. a function of `state`, 
+returns a `(fn <state>) -> action-effects` i.e. a function of `state`,
 which when invoked returns
 a map of (all optional) `action-effects` (returning no effects is
-not very useful, but perfectly fine). 
+not very useful, but perfectly fine).
 
 It is possible to define an action handler directly, with
 `(defmethod a/handle <key> [action] (fn [state] ...))`, but it's
-easier to use one of the sugar macros, which provide for some
+easier to use one of the sugar macros, which allow for some
 convenient destructuring:
 
 ## `action-effects`
@@ -199,8 +200,8 @@ to the updated state (i.e. not an `action-effects` map)
 ```
 ## [def-async-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.async#def-async-action)
 
-Defines a promise-based async action handler, which creates a 
-promise to retrieve some `async-action-data` and manages an 
+Defines a promise-based async action handler, which creates a
+promise to retrieve some `async-action-data` and manages an
 `async-action-state` structure in the state to record progress
 and results. `async-action-data` has shape:
 
@@ -214,7 +215,7 @@ and results. `async-action-data` has shape:
 The body of the `def-async-action` definition has 2 or 3 forms:
 
 1. a form returning a promise of the `async-action-data`
-2. (optional) initialisation effects - may also return `::a/cancel` to cancel 
+2. (optional) initialisation effects - may also return `::a/cancel` to cancel
    the action without evaluating the promise form
 3. completion effects
 
@@ -226,7 +227,7 @@ the bindings vector. Several bindings vector arities are offered:
 - `[state-bindings next-async-action-state-bindings action-bindings]`
 - `[state-bindings async-action-state-bindings next-async-action-state-bindings action-bindings]`
 
-So a simple async action may access the `next-async-action-state`and 
+So a simple async action may access the `next-async-action-state`and
 navigate on completion:
 
 ``` clojure
@@ -263,7 +264,7 @@ with the `next-async-action-state`:
 ```
 
 These `def-async-action` will assoc the `async-action-state` map in the
-global `state` at the action `key` path (the path can be overridden 
+global `state` at the action `key` path (the path can be overridden
 by providing an `::action/path` key in the `action` map), with the shape.
 
 ## [def-axios-action](https://cljdoc.org/d/com.github.mccraigmccraig/deepstate/CURRENT/api/deepstate.action.axios#def-axios-action)
@@ -276,8 +277,9 @@ promise, and the responseor error will be parsed into the `async-action-state`
 
 See the [example](https://github.com/mccraigmccraig/deepstate/tree/trunk/example)
 folder in the git repo. It's a modified
-[lilactown/helix-todo-mvc](https://github.com/lilactown/helix-todo-mvc) with
-state management converted to deepstate and the `::add` action being
+[lilactown/helix-todo-mvc](https://github.com/lilactown/helix-todo-mvc) 
+with an updated React Router,
+state management converted to deepstate, and the `::add` action being
 made async with a simulated network delay and a last-inflight-request-wins
 debounce
 
