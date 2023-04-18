@@ -51,7 +51,8 @@
 #?(:cljs
    (defmethod handle :default
      [action]
-     (js/console.warn "no handler matching action key: " (pr-str action))))
+     (js/console.warn "no handler matching action key: " (pr-str action))
+     (fn [_state] {})))
 
 #?(:cljs
    (declare internal-dispatch))
@@ -267,7 +268,7 @@
          (when (some? navurl)
            (js/console.info
             "deepstate.action/action-context-provider navigating"
-            navurl)
+            (pr-str navurl))
            (set-navurl nil)
            (navigate navurl)))
 

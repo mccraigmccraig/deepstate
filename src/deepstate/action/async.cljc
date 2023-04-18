@@ -24,6 +24,13 @@
        url
        pred]
 
+      ;; (js/console.info
+      ;;  "navigate-on-condition"
+      ;;  (pr-str effs)
+      ;;  (pr-str _async-action-state)
+      ;;  (pred status)
+      ;;  url)
+
       (if (pred status)
         (assoc effs ::action/navigate url)
         effs))))
@@ -54,6 +61,18 @@
 
      ([effs async-action-state url]
       (navigate-on-condition effs async-action-state url #(= ::action/inflight %)))))
+
+#?(:cljs
+   (defn navigate-on-completion
+     ([async-action-state url]
+      (navigate-on-completion {} async-action-state url))
+
+     ([effs async-action-state url]
+      (navigate-on-condition
+       effs
+       async-action-state
+       url
+       (fn [status] (#{::action/success ::action/error} status))))))
 
 #?(:cljs
    (defn navigate-always
